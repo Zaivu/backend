@@ -1,0 +1,119 @@
+Servidor: sudo docker logs -f frontend
+	  sudo docker-compose up -d --build
+	  sudo docker-compose down    
+	  
+
+Selectors
+-> activatedFlows:
+	1-findActivatedFlow: retorna o id correspondente da lista de fluxos ativos
+	2-findActivateTaskOne:	
+	3-filterActivatedFlows:
+	4-filterFinishedFlows:	
+	
+->
+	
+Pages
+->AdvancedStatsPage
+	em 1º UseEffect: 
+	
+	start: start = flow && flow.elements.find((e) => e.type === "eventStart");
+		//todos os flow.elements q tem type 'eventStart'
+	
+	const flowFullTime = flow && flowTime(flow.elements, start);/
+		/grafico
+	
+			
+	flow -> { _id, client, title, status, previsionTime(array), posts, lastState(array)
+		   elements(array), createdAt, finishedAt}
+		   
+		   ex: client: BRUNO, createdAt:"2021-04-20T12:39:37.497Z"
+		   
+	!!!stats = flow && count(flow.elements, start)
+		   
+	stats -> {branchTime, doneTime, donePreventTime, stats(array), 			  
+	realStats(array)}
+	
+  		*realstats(array):{x, y , taskTitle, start, finish}
+  		*stats(array): {x,y, taskTitle, start, finish}
+  		
+  		
+  	*Handles
+  	
+  	handleEmployeer
+  	handleCompletedFlow
+ 
+ ------------------------------------------------------------------------------
+ ->DashboardModelPage
+ 	Pagina de entrada pós login do MOVI, exibe a tabela de modelos de fluxo
+ 	Contém -> titulo, data de criação, deletar fluxo e copiar fluxo
+ 	ps: Modal se encontra aq
+ 	
+ 	
+ (linha 193)deletarbutton -> onCancel()=> handleCancel
+ 		//    -> onConfirm()=> handleConfirm(_id)
+ 		
+ 	handleConfirm(flowId)=>
+ 		dispatch(handleRemoveModelFlow(flowIf)).then(() =>
+ 		dispatch(fetchFlow(user?Id)).then(() => setConfirmOpen(false)));
+ 		
+ 	handleCancel = () =>setConfirmOpen(false);
+ 	//setConfirmOpen -> abrir/fechar modal
+
+********************************************************************************* 	
+ 	no actions: flow.js
+
+ 	->removeModelFlow = createAction("REMOVE_MODEL_FLOW")
+ 	->handleRemoveModelFlow = (flowId) =>{
+ 		return (dispatch) =>
+ 			instance
+ 			.post("/removeflowmodel", { flowId })
+  			.then((res) => dispatch(removeModelFlowSucess(res.data)))
+      			.catch((err) => dispatch(removeModelFlowFailure(err.message)));
+	};
+ 	};
+ 	
+ 	
+ 	->const removeModelFlowSucess = (payload) => removeModelFlow(payload);
+	->const removeModelFlowFailure = (error) => removeModelFlow(error);
+***********************************************************************************	
+
+onClick={()=>{
+                     setActualFlow(item);
+                            setConfirmOpen(true);
+                          }}
+**********************************************************************************
+	no reducer: flow.js
+	import {removeModelFlow}
+	
+	
+	export const fetchFlows = createAsyncThunk(
+  	  "flows/fetchFlows",
+	  async (enterpriseId) => {
+          const response = await instance.get("/flowmodels/" + enterpriseId);
+   	    return response.data;
+  }
+);
+	dentro de const flowsReducer = createReducer(
+		[removeModelFlow]: (state) => state
+	
+	)
+
+
+	
+ 	
+ ->FlowViewerModelPage
+ 	Pagina que abre a exibição e edições de modelo
+ 	Contém as opções de copiar fluxo, editar fluxo e deletar fluxo
+ 
+ ->DashboardActivatedPage
+ 	Pagina que contém tabela de fluxos ativados no momento
+ 	
+ ->FlowViewerActivate
+	Pagina de exibição do fluxo ativo 	
+ 	
+ 		
+ 
+ 	
+ 
+ 
+		   		
