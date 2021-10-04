@@ -6,10 +6,10 @@ const bcrypt = require("bcrypt");
 
 const router = express.Router();
 
-const redis = require("redis");
+/*const redis = require("redis");
 const util = require("util");
 
-/*const client = redis.createClient({
+const client = redis.createClient({
   port: 6379,
   host: "redis",
 });
@@ -27,21 +27,21 @@ router.use(requireAuth);
 router.get("/employees/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;
 
-  const result = await get(`users/${enterpriseId}`);
+  //const result = await get(`users/${enterpriseId}`);
 
-  if (!result) {
-    try {
-      const users = await User.find({ enterpriseId, rank: "Funcionário" });
+  //if (!result) {
+  try {
+    const users = await User.find({ enterpriseId, rank: "Funcionário" });
 
-      //await set(`users/${enterpriseId}`, JSON.stringify(users));
+    //await set(`users/${enterpriseId}`, JSON.stringify(users));
 
-      res.send(users);
-    } catch (err) {
-      return res.status(422).send(err.message);
-    }
-  } else {
-    res.send(result);
+    res.send(users);
+  } catch (err) {
+    return res.status(422).send(err.message);
   }
+  /*} else {
+    res.send(result);
+  }*/
 });
 
 router.delete(

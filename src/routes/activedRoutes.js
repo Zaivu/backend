@@ -160,47 +160,47 @@ router.get("/actived-flows/:enterpriseId", async (req, res) => {
 
   //const result = await get(`activedflows/${enterpriseId}`);
 
-  if (!result) {
-    try {
-      const flows = await ActivedFlow.find({ enterpriseId });
-      const idArray = flows.map((item) => item._id);
-      const nodes = await ActivedNode.find({ flowId: { $in: idArray } });
-      const edges = await ActivedEdge.find({ flowId: { $in: idArray } });
+  //if (!result) {
+  try {
+    const flows = await ActivedFlow.find({ enterpriseId });
+    const idArray = flows.map((item) => item._id);
+    const nodes = await ActivedNode.find({ flowId: { $in: idArray } });
+    const edges = await ActivedEdge.find({ flowId: { $in: idArray } });
 
-      const formatedFlows = flows.map((item) => {
-        const newNodes = nodes.filter(
-          (el) => el.flowId.toString() === item._id.toString()
-        );
-        const newEdges = edges.filter(
-          (el) => el.flowId.toString() === item._id.toString()
-        );
+    const formatedFlows = flows.map((item) => {
+      const newNodes = nodes.filter(
+        (el) => el.flowId.toString() === item._id.toString()
+      );
+      const newEdges = edges.filter(
+        (el) => el.flowId.toString() === item._id.toString()
+      );
 
-        const flow = {
-          _id: item._id,
-          title: item.title,
-          status: item.status,
-          createdAt: item.createdAt,
-          finishedAt: item.finishedAt,
-          comments: item.comments,
-          posts: item.posts,
-          enterpriseId,
-          client: item.client,
-          lastState: item.lastState,
-          elements: [...newNodes, ...newEdges],
-        };
+      const flow = {
+        _id: item._id,
+        title: item.title,
+        status: item.status,
+        createdAt: item.createdAt,
+        finishedAt: item.finishedAt,
+        comments: item.comments,
+        posts: item.posts,
+        enterpriseId,
+        client: item.client,
+        lastState: item.lastState,
+        elements: [...newNodes, ...newEdges],
+      };
 
-        return flow;
-      });
+      return flow;
+    });
 
-      //await set(`activedflows/${enterpriseId}`, JSON.stringify(formatedFlows));
+    //await set(`activedflows/${enterpriseId}`, JSON.stringify(formatedFlows));
 
-      res.send(formatedFlows);
-    } catch (err) {
-      res.status(422).send({ error: err.message });
-    }
-  } else {
-    res.send(result);
+    res.send(formatedFlows);
+  } catch (err) {
+    res.status(422).send({ error: err.message });
   }
+  /*} else {
+    res.send(result);
+  }*/
 });
 
 router.post("/actived-flows/actived-flow/new", async (req, res) => {

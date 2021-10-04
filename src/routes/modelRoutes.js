@@ -30,73 +30,73 @@ router.get("/flow-models/:enterpriseId", async (req, res) => {
 
   //const result = await get(`modelflows/${enterpriseId}`);
 
-  if (!result) {
-    //try {
-    const flows = await FlowModel.find({ enterpriseId });
-    const idArray = flows.map((item) => item._id);
-    const nodes = await Node.find({ flowId: { $in: idArray } });
-    const edges = await Edge.find({ flowId: { $in: idArray } });
+  //if (!result) {
+  //try {
+  const flows = await FlowModel.find({ enterpriseId });
+  const idArray = flows.map((item) => item._id);
+  const nodes = await Node.find({ flowId: { $in: idArray } });
+  const edges = await Edge.find({ flowId: { $in: idArray } });
 
-    const originalFlows = flows.filter(
-      (item) => item.versionNumber === undefined
+  const originalFlows = flows.filter(
+    (item) => item.versionNumber === undefined
+  );
+
+  const formatedFlows = originalFlows.map((item) => {
+    const newNodes = nodes.filter(
+      (el) => el.flowId.toString() === item._id.toString()
+    );
+    const newEdges = edges.filter(
+      (el) => el.flowId.toString() === item._id.toString()
     );
 
-    const formatedFlows = originalFlows.map((item) => {
+    const versionFlows = flows.filter(
+      (el) => el?.originalId?.toString() === item._id.toString()
+    );
+
+    const formatedVersionFlows = versionFlows.map((it) => {
       const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === item._id.toString()
+        (el) => el.flowId.toString() === it._id.toString()
       );
       const newEdges = edges.filter(
-        (el) => el.flowId.toString() === item._id.toString()
+        (el) => el.flowId.toString() === it._id.toString()
       );
 
-      const versionFlows = flows.filter(
-        (el) => el?.originalId?.toString() === item._id.toString()
-      );
-
-      const formatedVersionFlows = versionFlows.map((it) => {
-        const newNodes = nodes.filter(
-          (el) => el.flowId.toString() === it._id.toString()
-        );
-        const newEdges = edges.filter(
-          (el) => el.flowId.toString() === it._id.toString()
-        );
-
-        const versionFlow = {
-          title: it.title,
-          _id: it._id,
-          createdAt: it.createdAt,
-          enterpriseId,
-          elements: [...newNodes, ...newEdges],
-          position: it.position,
-          originalId: it.originalId,
-          versionNumber: it.versionNumber,
-        };
-
-        return versionFlow;
-      });
-
-      const flow = {
-        title: item.title,
-        _id: item._id,
-        createdAt: item.createdAt,
+      const versionFlow = {
+        title: it.title,
+        _id: it._id,
+        createdAt: it.createdAt,
         enterpriseId,
         elements: [...newNodes, ...newEdges],
-        versions: formatedVersionFlows,
-        defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
+        position: it.position,
+        originalId: it.originalId,
+        versionNumber: it.versionNumber,
       };
 
-      return flow;
+      return versionFlow;
     });
 
-    //await set(`modelflows/${enterpriseId}`, JSON.stringify(formatedFlows));
+    const flow = {
+      title: item.title,
+      _id: item._id,
+      createdAt: item.createdAt,
+      enterpriseId,
+      elements: [...newNodes, ...newEdges],
+      versions: formatedVersionFlows,
+      defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
+    };
 
-    res.send(formatedFlows);
-    //} catch (err) {
-    //  res.status(422).send({ error: err.message });
-    // }
-  } else {
+    return flow;
+  });
+
+  //await set(`modelflows/${enterpriseId}`, JSON.stringify(formatedFlows));
+
+  res.send(formatedFlows);
+  //} catch (err) {
+  //  res.status(422).send({ error: err.message });
+  // }
+  /*} else {
     res.send(result);
-  }
+  }*/
 });
 
 router.post("/flow-models/flow-model/new-flow", async (req, res) => {
