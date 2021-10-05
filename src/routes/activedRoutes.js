@@ -206,7 +206,7 @@ router.get("/actived-flows/:enterpriseId", async (req, res) => {
 router.post("/actived-flows/actived-flow/new", async (req, res) => {
   const { flow, title, client, enterpriseId, version } = req.body;
 
-  //const nowLocal = moment().utcOffset(-180);
+  const nowLocal = moment().utcOffset(-180);
 
   try {
     const start = flow.elements.find((e) => e.type === "eventStart");
