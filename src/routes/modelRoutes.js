@@ -6,11 +6,13 @@ const Node = mongoose.model("Node");
 const moment = require("moment");
 const requireAuth = require("../middlewares/requireAuth");
 
+const app = express();
 const router = express.Router();
-const redis = require("redis");
+
+/*const redis = require("redis");
 const util = require("util");
 
-/*const client = redis.createClient({
+const client = redis.createClient({
   port: 6379,
   host: "redis",
 });

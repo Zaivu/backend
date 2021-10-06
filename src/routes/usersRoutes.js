@@ -5,6 +5,7 @@ const requireAuth = require("../middlewares/requireAuth");
 const bcrypt = require("bcrypt");
 
 const router = express.Router();
+const app = express();
 
 /*const redis = require("redis");
 const util = require("util");

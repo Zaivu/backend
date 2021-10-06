@@ -1,3 +1,6 @@
+const tracer = require("dd-trace");
+tracer.init({ hostname: "172.17.0.1" });
+
 require("./models/FlowModel");
 require("./models/ActivedFlow");
 require("./models/Edge");
@@ -12,12 +15,6 @@ const activedRoutes = require("./routes/activedRoutes");
 const authRoutes = require("./routes/authRoutes");
 const usersRoutes = require("./routes/usersRoutes");
 const cors = require("cors");
-
-const AWSXRay = require("aws-xray-sdk");
-AWSXRay.config([
-  AWSXRay.plugins.EC2Plugin,
-  AWSXRay.plugins.ElasticBeanstalkPlugin,
-]);
 
 const app = express();
 
