@@ -1,5 +1,4 @@
-const tracer = require("dd-trace");
-tracer.init({ hostname: "172.17.0.1" });
+const tracer = require("dd-trace").init();
 
 require("./models/FlowModel");
 require("./models/ActivedFlow");

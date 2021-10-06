@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-mongoose.plugin(require("mongoose-xray"));
 
 const edgeSchema = new mongoose.Schema({
   flowId: {
