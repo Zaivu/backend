@@ -5,4 +5,4 @@ RUN npm install --production
 RUN npm install nodemon -g --production
 COPY . . 
 EXPOSE 5000
-CMD nodemon -L --watch . src/index.js
+CMD nodemon --max-old-space-size=4096 -L --watch . src/index.js

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+mongoose.plugin(require("mongoose-xray"));
 
 const flowModelSchema = new mongoose.Schema({
   title: {

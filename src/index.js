@@ -13,6 +13,12 @@ const authRoutes = require("./routes/authRoutes");
 const usersRoutes = require("./routes/usersRoutes");
 const cors = require("cors");
 
+const AWSXRay = require("aws-xray-sdk");
+AWSXRay.config([
+  AWSXRay.plugins.EC2Plugin,
+  AWSXRay.plugins.ElasticBeanstalkPlugin,
+]);
+
 const app = express();
 
 app.use(cors());
