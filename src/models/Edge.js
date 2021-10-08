@@ -38,9 +38,6 @@ const edgeSchema = new mongoose.Schema({
   labelStyle: {
     type: Object,
   },
-  animated: {
-    type: Boolean,
-  },
   enterpriseId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",

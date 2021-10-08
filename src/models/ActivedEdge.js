@@ -33,10 +33,6 @@ const activedEdgeSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  animated: {
-    type: String,
-    default: true,
-  },
   label: {
     type: String,
   },
