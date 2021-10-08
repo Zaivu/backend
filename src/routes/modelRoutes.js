@@ -5,8 +5,6 @@ const Edge = mongoose.model("Edge");
 const Node = mongoose.model("Node");
 const moment = require("moment");
 const requireAuth = require("../middlewares/requireAuth");
-
-const app = express();
 const router = express.Router();
 
 /*const redis = require("redis");

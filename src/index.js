@@ -1,5 +1,3 @@
-const tracer = require("dd-trace").init();
-
 require("./models/FlowModel");
 require("./models/ActivedFlow");
 require("./models/Edge");
