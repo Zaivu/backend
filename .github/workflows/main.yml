@@ -1,4 +1,4 @@
-name: Dev deployment from Github to AWS
+name: DEPLOY Github to AWS
 on:
   push:
     branches:
