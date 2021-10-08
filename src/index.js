@@ -29,7 +29,7 @@ app.use(activedRoutes);
 app.use(usersRoutes);
 
 const mongoUri =
-  "mongodb://camboim:Guitarra7762@172.31.15.183:27017/test?authSource=admin";
+  "mongodb://camboim:Dev0312@172.31.27.12:27017/test?authSource=admin";
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
