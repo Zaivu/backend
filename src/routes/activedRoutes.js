@@ -203,7 +203,7 @@ router.get("/actived-flows/:enterpriseId", async (req, res) => {
   if (process.env.REDIS_CLUSTER === "true")
     result = await get(`activedflows/${enterpriseId}`);
 
-  if (process.env.REDIS_CLUSTER === "true" || !result) {
+  if (!result) {
     try {
       const flows = await ActivedFlow.find({ enterpriseId });
       const idArray = flows.map((item) => item._id);
@@ -235,15 +235,13 @@ router.get("/actived-flows/:enterpriseId", async (req, res) => {
         return flow;
       });
 
-      if (process.env.REDIS_CLUSTER === "true") {
+      if (process.env.REDIS_CLUSTER === "true")
         await set(
           `activedflows/${enterpriseId}`,
           JSON.stringify(formatedFlows)
         );
-        res.send(formatedFlows);
-      } else {
-        res.send(formatedFlows);
-      }
+
+      res.send(formatedFlows);
     } catch (err) {
       res.status(422).send({ error: err.message });
     }

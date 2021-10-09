@@ -48,7 +48,7 @@ router.get("/flow-models/:enterpriseId", async (req, res) => {
   if (process.env.REDIS_CLUSTER === "true")
     result = await get(`modelflows/${enterpriseId}`);
 
-  if (process.env.REDIS_CLUSTER === "true" || !result) {
+  if (!result) {
     try {
       const flows = await FlowModel.find({ enterpriseId });
       const idArray = flows.map((item) => item._id);

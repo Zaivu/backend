@@ -45,7 +45,7 @@ router.get("/employees/:enterpriseId", async (req, res) => {
   if (process.env.REDIS_CLUSTER === "true")
     result = await get(`users/${enterpriseId}`);
 
-  if (process.env.REDIS_CLUSTER === "true" || !result) {
+  if (!result) {
     try {
       const users = await User.find({ enterpriseId, rank: "Funcionário" });
 
