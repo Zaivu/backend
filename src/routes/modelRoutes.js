@@ -7,12 +7,12 @@ const moment = require("moment");
 const requireAuth = require("../middlewares/requireAuth");
 const router = express.Router();
 
-/*const redis = require("redis");
+const redis = require("redis");
 const util = require("util");
 
 const client = redis.createClient({
   port: 6379,
-  host: "redis",
+  host: "redis-cluster.0bhmx9.clustercfg.sae1.cache.amazonaws.com",
 });
 
 let get = util.promisify(client.get).bind(client);
@@ -21,7 +21,7 @@ let del = util.promisify(client.del).bind(client);
 
 client.on("error", (err) => {
   console.log("DEU ERRO NO REDIS", err);
-});*/
+});
 
 router.use(requireAuth);
 
