@@ -3,44 +3,54 @@ const mongoose = require("mongoose");
 const User = mongoose.model("User");
 const requireAuth = require("../middlewares/requireAuth");
 const router = express.Router();
-const RedisClustr = require("redis-clustr");
 
+const RedisClustr = require("redis-clustr");
 const redis = require("redis");
 const util = require("util");
+let client;
+let get;
+let set;
+let del;
 
-const client = new RedisClustr({
-  servers: [
-    {
-      host: process.env.REDIS_HOST,
-      port: process.env.REDIS_PORT,
+if (process.env.REDIS_CLUSTER === "true") {
+  client = new RedisClustr({
+    servers: [
+      {
+        host: process.env.REDIS_HOST,
+        port: process.env.REDIS_PORT,
+      },
+    ],
+    createClient: function (port, host) {
+      // this is the default behaviour
+      return redis.createClient(port, host);
     },
-  ],
-  createClient: function (port, host) {
-    // this is the default behaviour
-    return redis.createClient(port, host);
-  },
-});
+  });
 
-let get = util.promisify(client.get).bind(client);
-let set = util.promisify(client.set).bind(client);
-let del = util.promisify(client.del).bind(client);
+  get = util.promisify(client.get).bind(client);
+  set = util.promisify(client.set).bind(client);
+  del = util.promisify(client.del).bind(client);
 
-client.on("error", (err) => {
-  console.log("DEU ERRO NO REDIS", err);
-});
+  client.on("error", (err) => {
+    console.log("DEU ERRO NO REDIS", err);
+  });
+}
 
 router.use(requireAuth);
 
 router.get("/employees/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;
 
-  const result = await get(`users/${enterpriseId}`);
+  let result = false;
 
-  if (!result) {
+  if (process.env.REDIS_CLUSTER === "true")
+    result = await get(`users/${enterpriseId}`);
+
+  if (process.env.REDIS_CLUSTER === "true" || !result) {
     try {
       const users = await User.find({ enterpriseId, rank: "Funcionário" });
 
-      await set(`users/${enterpriseId}`, JSON.stringify(users));
+      if (process.env.REDIS_CLUSTER === "true")
+        await set(`users/${enterpriseId}`, JSON.stringify(users));
 
       res.send(users);
     } catch (err) {
@@ -60,7 +70,8 @@ router.delete(
       const user = await User.findOne({ username, enterpriseId });
       await User.deleteOne({ _id: user._id });
 
-      await del(`users/${enterpriseId}`);
+      if (process.env.REDIS_CLUSTER === "true")
+        await del(`users/${enterpriseId}`);
 
       res.send({ userId: user._id });
     } catch (err) {

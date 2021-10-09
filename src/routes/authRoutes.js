@@ -7,31 +7,37 @@ const secret = require("../middlewares/config");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcrypt");
 const router = express.Router();
-const RedisClustr = require("redis-clustr");
 
+const RedisClustr = require("redis-clustr");
 const redis = require("redis");
 const util = require("util");
+let client;
+let get;
+let set;
+let del;
 
-const client = new RedisClustr({
-  servers: [
-    {
-      host: process.env.REDIS_HOST,
-      port: process.env.REDIS_PORT,
+if (process.env.REDIS_CLUSTER === "true") {
+  client = new RedisClustr({
+    servers: [
+      {
+        host: process.env.REDIS_HOST,
+        port: process.env.REDIS_PORT,
+      },
+    ],
+    createClient: function (port, host) {
+      // this is the default behaviour
+      return redis.createClient(port, host);
     },
-  ],
-  createClient: function (port, host) {
-    // this is the default behaviour
-    return redis.createClient(port, host);
-  },
-});
+  });
 
-let get = util.promisify(client.get).bind(client);
-let set = util.promisify(client.set).bind(client);
-let del = util.promisify(client.del).bind(client);
+  get = util.promisify(client.get).bind(client);
+  set = util.promisify(client.set).bind(client);
+  del = util.promisify(client.del).bind(client);
 
-client.on("error", (err) => {
-  console.log("DEU ERRO NO REDIS", err);
-});
+  client.on("error", (err) => {
+    console.log("DEU ERRO NO REDIS", err);
+  });
+}
 
 router.post("/auth/sign-up", async (req, res) => {
   const { username, password, enterpriseId, rank, email } = req.body;
@@ -42,7 +48,10 @@ router.post("/auth/sign-up", async (req, res) => {
     else {
       const user = new User({ username, password, enterpriseId, rank, email });
       await user.save();
-      await del(`users/${enterpriseId}`);
+
+      if (process.env.REDIS_CLUSTER === "true")
+        await del(`users/${enterpriseId}`);
+
       res.send({ user });
     }
   } catch (err) {
@@ -202,7 +211,8 @@ router.put("/auth/edit-username", async (req, res) => {
       );
 
       if (newUser.rank === "Funcionário") {
-        await del(`users/${newUser.enterpriseId}`);
+        if (process.env.REDIS_CLUSTER === "true")
+          await del(`users/${newUser.enterpriseId}`);
       }
 
       res.send(newUser);
@@ -245,7 +255,8 @@ router.put("/auth/edit-email", async (req, res) => {
       );
 
       if (newUser.rank === "Funcionário") {
-        await del(`users/${newUser.enterpriseId}`);
+        if (process.env.REDIS_CLUSTER === "true")
+          await del(`users/${newUser.enterpriseId}`);
       }
 
       res.send(newUser);
