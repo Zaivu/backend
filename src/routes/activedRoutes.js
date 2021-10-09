@@ -16,15 +16,24 @@ const upload = multer({ storage });
 const moment = require("moment");
 const requireAuth = require("../middlewares/requireAuth");
 const path = require("path");
+const RedisClustr = require("redis-clustr");
 
 const router = express.Router();
 
 const redis = require("redis");
 const util = require("util");
 
-const client = redis.createClient({
-  port: 6379,
-  host: "redis-cluster.0bhmx9.clustercfg.sae1.cache.amazonaws.com",
+const client = new RedisClustr({
+  servers: [
+    {
+      host: "redis.0bhmx9.clustercfg.sae1.cache.amazonaws.com",
+      port: 6379,
+    },
+  ],
+  createClient: function (port, host) {
+    // this is the default behaviour
+    return redis.createClient(port, host);
+  },
 });
 
 let get = util.promisify(client.get).bind(client);
