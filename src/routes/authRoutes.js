@@ -8,7 +8,7 @@ const nodemailer = require("nodemailer");
 const bcrypt = require("bcrypt");
 const router = express.Router();
 
-/*const redis = require("redis");
+const redis = require("redis");
 const util = require("util");
 
 const client = redis.createClient({
@@ -22,7 +22,7 @@ let del = util.promisify(client.del).bind(client);
 
 client.on("error", (err) => {
   console.log("DEU ERRO NO REDIS", err);
-});*/
+});
 
 router.post("/auth/sign-up", async (req, res) => {
   const { username, password, enterpriseId, rank, email } = req.body;
@@ -33,7 +33,7 @@ router.post("/auth/sign-up", async (req, res) => {
     else {
       const user = new User({ username, password, enterpriseId, rank, email });
       await user.save();
-      //await del(`users/${enterpriseId}`);
+      await del(`users/${enterpriseId}`);
       res.send({ user });
     }
   } catch (err) {

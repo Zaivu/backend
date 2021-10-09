@@ -28,75 +28,75 @@ router.use(requireAuth);
 router.get("/flow-models/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;
 
-  //const result = await get(`modelflows/${enterpriseId}`);
+  const result = await get(`modelflows/${enterpriseId}`);
 
-  //if (!result) {
-  //try {
-  const flows = await FlowModel.find({ enterpriseId });
-  const idArray = flows.map((item) => item._id);
-  const nodes = await Node.find({ flowId: { $in: idArray } });
-  const edges = await Edge.find({ flowId: { $in: idArray } });
+  if (!result) {
+    try {
+      const flows = await FlowModel.find({ enterpriseId });
+      const idArray = flows.map((item) => item._id);
+      const nodes = await Node.find({ flowId: { $in: idArray } });
+      const edges = await Edge.find({ flowId: { $in: idArray } });
 
-  const originalFlows = flows.filter(
-    (item) => item.versionNumber === undefined
-  );
-
-  const formatedFlows = originalFlows.map((item) => {
-    const newNodes = nodes.filter(
-      (el) => el.flowId.toString() === item._id.toString()
-    );
-    const newEdges = edges.filter(
-      (el) => el.flowId.toString() === item._id.toString()
-    );
-
-    const versionFlows = flows.filter(
-      (el) => el?.originalId?.toString() === item._id.toString()
-    );
-
-    const formatedVersionFlows = versionFlows.map((it) => {
-      const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === it._id.toString()
-      );
-      const newEdges = edges.filter(
-        (el) => el.flowId.toString() === it._id.toString()
+      const originalFlows = flows.filter(
+        (item) => item.versionNumber === undefined
       );
 
-      const versionFlow = {
-        title: it.title,
-        _id: it._id,
-        createdAt: it.createdAt,
-        enterpriseId,
-        elements: [...newNodes, ...newEdges],
-        position: it.position,
-        originalId: it.originalId,
-        versionNumber: it.versionNumber,
-      };
+      const formatedFlows = originalFlows.map((item) => {
+        const newNodes = nodes.filter(
+          (el) => el.flowId.toString() === item._id.toString()
+        );
+        const newEdges = edges.filter(
+          (el) => el.flowId.toString() === item._id.toString()
+        );
 
-      return versionFlow;
-    });
+        const versionFlows = flows.filter(
+          (el) => el?.originalId?.toString() === item._id.toString()
+        );
 
-    const flow = {
-      title: item.title,
-      _id: item._id,
-      createdAt: item.createdAt,
-      enterpriseId,
-      elements: [...newNodes, ...newEdges],
-      versions: formatedVersionFlows,
-      defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
-    };
+        const formatedVersionFlows = versionFlows.map((it) => {
+          const newNodes = nodes.filter(
+            (el) => el.flowId.toString() === it._id.toString()
+          );
+          const newEdges = edges.filter(
+            (el) => el.flowId.toString() === it._id.toString()
+          );
 
-    return flow;
-  });
+          const versionFlow = {
+            title: it.title,
+            _id: it._id,
+            createdAt: it.createdAt,
+            enterpriseId,
+            elements: [...newNodes, ...newEdges],
+            position: it.position,
+            originalId: it.originalId,
+            versionNumber: it.versionNumber,
+          };
 
-  //await set(`modelflows/${enterpriseId}`, JSON.stringify(formatedFlows));
+          return versionFlow;
+        });
 
-  res.send(formatedFlows);
-  //} catch (err) {
-  //  res.status(422).send({ error: err.message });
-  // }
-  /*} else {
+        const flow = {
+          title: item.title,
+          _id: item._id,
+          createdAt: item.createdAt,
+          enterpriseId,
+          elements: [...newNodes, ...newEdges],
+          versions: formatedVersionFlows,
+          defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
+        };
+
+        return flow;
+      });
+
+      await set(`modelflows/${enterpriseId}`, JSON.stringify(formatedFlows));
+
+      res.send(formatedFlows);
+    } catch (err) {
+      res.status(422).send({ error: err.message });
+    }
+  } else {
     res.send(result);
-  }*/
+  }
 });
 
 router.post("/flow-models/flow-model/new-flow", async (req, res) => {
@@ -149,7 +149,7 @@ router.post("/flow-models/flow-model/new-flow", async (req, res) => {
     const edges = await Edge.find({ flowId: flow._id });
     const nodes = await Node.find({ flowId: flow._id });
 
-    //await del(`modelflows/${enterpriseId}`);
+    await del(`modelflows/${enterpriseId}`);
 
     res.status(200).json({
       flow: {
@@ -175,7 +175,7 @@ router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
     await Node.remove({ flowId });
     await Edge.remove({ flowId });
 
-    //await del(`modelflows/${flow.enterpriseId}`);
+    await del(`modelflows/${flow.enterpriseId}`);
 
     res.send({ flowId });
   } catch (err) {
@@ -211,7 +211,7 @@ router.put("/flow-models/flow-model/edit", async (req, res) => {
     const nodes = await Node.find({ flowId: flow._id });
     const edges = await Edge.find({ flowId: flow._id });
 
-    //await del(`modelflows/${flow.enterpriseId}`);
+    await del(`modelflows/${flow.enterpriseId}`);
 
     res.status(200).json({
       flow: {
@@ -256,7 +256,7 @@ router.put("/flow-models/flow-model/edit-version", async (req, res) => {
     const nodes = await Node.find({ flowId: versionId });
     const edges = await Edge.find({ flowId: versionId });
 
-    //await del(`modelflows/${flow.enterpriseId}`);
+    await del(`modelflows/${flow.enterpriseId}`);
 
     res.status(200).json({
       flow: {
@@ -316,7 +316,7 @@ router.put("/flow-models/flow-model/new-version", async (req, res) => {
     const edges = await Edge.find({ flowId: flow._id });
     const nodes = await Node.find({ flowId: flow._id });
 
-    //await del(`modelflows/${enterpriseId}`);
+    await del(`modelflows/${enterpriseId}`);
 
     res.status(200).json({
       flow: {
@@ -340,7 +340,7 @@ router.put("/flow-models/flow-model/new-default-version", async (req, res) => {
 
   try {
     const flow = await FlowModel.findByIdAndUpdate(flowId, { defaultVersion });
-    //await del(`modelflows/${flow.enterpriseId}`);
+    await del(`modelflows/${flow.enterpriseId}`);
 
     res.status(200).json({ defaultVersion, flowId });
   } catch (err) {
@@ -361,7 +361,7 @@ router.put("/flow-models/flow-model/delete-version", async (req, res) => {
     });
   }
 
-  //await del(`modelflows/${flow.enterpriseId}`);
+  await del(`modelflows/${flow.enterpriseId}`);
 
   res.status(200).json({
     defaultVersion:
@@ -385,7 +385,7 @@ router.put("/flow-models/flow-model/task/edit", async (req, res) => {
     );
 
     const flow = await FlowModel.findOne({ _id: newTask.flowId });
-    //await del(`modelflows/${flow.enterpriseId}`);
+    await del(`modelflows/${flow.enterpriseId}`);
 
     if (version === "default") {
       res.send({ newTask, version, flowId: newTask.flowId });
@@ -409,7 +409,7 @@ router.put("/flow-models/flow-model/timer/edit", async (req, res) => {
 
     const flow = await FlowModel.findOne({ _id: newTimer.flowId });
 
-    //await del(`modelflows/${flow.enterpriseId}`);
+    await del(`modelflows/${flow.enterpriseId}`);
 
     if (version === "default") {
       res.send({ newTimer, version, flowId: newTask.flowId });

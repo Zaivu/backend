@@ -4,7 +4,7 @@ const User = mongoose.model("User");
 const requireAuth = require("../middlewares/requireAuth");
 const router = express.Router();
 
-/*const redis = require("redis");
+const redis = require("redis");
 const util = require("util");
 
 const client = redis.createClient({
@@ -18,28 +18,28 @@ let del = util.promisify(client.del).bind(client);
 
 client.on("error", (err) => {
   console.log("DEU ERRO NO REDIS", err);
-});*/
+});
 
 router.use(requireAuth);
 
 router.get("/employees/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;
 
-  //const result = await get(`users/${enterpriseId}`);
+  const result = await get(`users/${enterpriseId}`);
 
-  //if (!result) {
-  try {
-    const users = await User.find({ enterpriseId, rank: "Funcionário" });
+  if (!result) {
+    try {
+      const users = await User.find({ enterpriseId, rank: "Funcionário" });
 
-    //await set(`users/${enterpriseId}`, JSON.stringify(users));
+      await set(`users/${enterpriseId}`, JSON.stringify(users));
 
-    res.send(users);
-  } catch (err) {
-    return res.status(422).send(err.message);
-  }
-  /*} else {
+      res.send(users);
+    } catch (err) {
+      return res.status(422).send(err.message);
+    }
+  } else {
     res.send(result);
-  }*/
+  }
 });
 
 router.delete(
@@ -51,7 +51,7 @@ router.delete(
       const user = await User.findOne({ username, enterpriseId });
       await User.deleteOne({ _id: user._id });
 
-      //await del(`users/${enterpriseId}`);
+      await del(`users/${enterpriseId}`);
 
       res.send({ userId: user._id });
     } catch (err) {
