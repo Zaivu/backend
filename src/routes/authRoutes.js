@@ -13,7 +13,7 @@ const util = require("util");
 
 const client = redis.createClient({
   port: 6379,
-  host: "redis",
+  host: "redis-cluster.0bhmx9.clustercfg.sae1.cache.amazonaws.com",
 });
 
 let get = util.promisify(client.get).bind(client);
