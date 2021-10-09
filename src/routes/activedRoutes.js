@@ -198,7 +198,7 @@ router.delete("/posts/:id", async (req, res) => {
 router.get("/actived-flows/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;
 
-  let result = false;
+  let result;
 
   if (process.env.REDIS_CLUSTER === "true")
     result = await get(`activedflows/${enterpriseId}`);
