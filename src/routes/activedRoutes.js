@@ -3,31 +3,24 @@ const mongoose = require("mongoose");
 const ActivedFlow = mongoose.model("ActivedFlow");
 const ActivedEdge = mongoose.model("ActivedEdge");
 const ActivedNode = mongoose.model("ActivedNode");
+const Post = mongoose.model("Post");
 const multer = require("multer");
 const fs = require("fs");
 const { promisify } = require("util");
-const storage = multer.diskStorage({
-  destination: "./files",
-  filename(req, file, cb) {
-    cb(null, `${new Date()}-${file.originalname}`);
-  },
-});
 const upload = multer({ storage });
 const moment = require("moment");
 const requireAuth = require("../middlewares/requireAuth");
-const path = require("path");
+const multer = require("multer");
+const multerConfig = require("./config/multer");
 const RedisClustr = require("redis-clustr");
-
 const router = express.Router();
-
 const redis = require("redis");
 const util = require("util");
-
 const client = new RedisClustr({
   servers: [
     {
-      host: "redis.0bhmx9.clustercfg.sae1.cache.amazonaws.com",
-      port: 6379,
+      host: process.env.REDIS_HOST,
+      port: process.env.REDIS_PORT,
     },
   ],
   createClient: function (port, host) {
@@ -35,7 +28,6 @@ const client = new RedisClustr({
     return redis.createClient(port, host);
   },
 });
-
 let get = util.promisify(client.get).bind(client);
 let set = util.promisify(client.set).bind(client);
 let del = util.promisify(client.del).bind(client);
@@ -44,11 +36,14 @@ client.on("error", (err) => {
   console.log("DEU ERRO NO REDIS", err);
 });
 
+const storage = multer.diskStorage({
+  destination: "./files",
+  filename(req, file, cb) {
+    cb(null, `${new Date()}-${file.originalname}`);
+  },
+});
+
 router.use(requireAuth);
-router.use(
-  "/files",
-  express.static(path.resolve(__dirname, "..", "..", "files"))
-);
 
 let newStatus = [];
 
@@ -163,6 +158,33 @@ function walkEndLoop(nodes, edges, item, callback) {
     });
   }
 }
+
+router.get("/posts", async (req, res) => {
+  const posts = await Post.find();
+
+  return res.json(posts);
+});
+
+router.post("/posts", multer(multerConfig).single("file"), async (req, res) => {
+  const { originalname: name, size, key, location: url = "" } = req.file;
+
+  const post = await Post.create({
+    name,
+    size,
+    key,
+    url,
+  });
+
+  return res.json(post);
+});
+
+router.delete("/posts/:id", async (req, res) => {
+  const post = await Post.findById(req.params.id);
+
+  await post.remove();
+
+  return res.send();
+});
 
 router.get("/actived-flows/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;

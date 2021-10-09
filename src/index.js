@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 require("./models/FlowModel");
 require("./models/ActivedFlow");
 require("./models/Edge");
@@ -12,12 +14,17 @@ const activedRoutes = require("./routes/activedRoutes");
 const authRoutes = require("./routes/authRoutes");
 const usersRoutes = require("./routes/usersRoutes");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb" }));
+app.use(
+  "/files",
+  express.static(path.resolve(__dirname, "..", "tmp", "uploads"))
+);
 
 app.get("/", (req, res) => {
   res.status(200).send("ok");
@@ -28,8 +35,7 @@ app.use(modelRoutes);
 app.use(activedRoutes);
 app.use(usersRoutes);
 
-const mongoUri =
-  "mongodb://camboim:Dev0312@172.31.27.121:27017/test?authSource=admin";
+const mongoUri = process.env.MONGO_URL;
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,

@@ -15,8 +15,8 @@ const util = require("util");
 const client = new RedisClustr({
   servers: [
     {
-      host: "redis.0bhmx9.clustercfg.sae1.cache.amazonaws.com",
-      port: 6379,
+      host: process.env.REDIS_HOST,
+      port: process.env.REDIS_PORT,
     },
   ],
   createClient: function (port, host) {
