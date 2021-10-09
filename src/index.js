@@ -7,6 +7,7 @@ require("./models/Node");
 require("./models/ActivedEdge");
 require("./models/ActivedNode");
 require("./models/User");
+require("./models/Post");
 const express = require("express");
 const mongoose = require("mongoose");
 const modelRoutes = require("./routes/modelRoutes");
