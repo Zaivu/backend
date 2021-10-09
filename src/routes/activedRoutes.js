@@ -10,7 +10,6 @@ const { promisify } = require("util");
 const upload = multer({ storage });
 const moment = require("moment");
 const requireAuth = require("../middlewares/requireAuth");
-const multer = require("multer");
 const multerConfig = require("./config/multer");
 const RedisClustr = require("redis-clustr");
 const router = express.Router();
