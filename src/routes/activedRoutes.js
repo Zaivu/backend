@@ -235,13 +235,15 @@ router.get("/actived-flows/:enterpriseId", async (req, res) => {
         return flow;
       });
 
-      if (process.env.REDIS_CLUSTER === "true")
+      if (process.env.REDIS_CLUSTER === "true") {
         await set(
           `activedflows/${enterpriseId}`,
           JSON.stringify(formatedFlows)
         );
-
-      res.send(formatedFlows);
+        res.send(formatedFlows);
+      } else {
+        res.send(formatedFlows);
+      }
     } catch (err) {
       res.status(422).send({ error: err.message });
     }
