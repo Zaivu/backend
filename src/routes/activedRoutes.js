@@ -1,18 +1,28 @@
 const express = require("express");
+const moment = require("moment");
+const multer = require("multer");
+const { promisify } = require("util");
 const mongoose = require("mongoose");
+const fs = require("fs");
+const requireAuth = require("../middlewares/requireAuth");
+const multerConfig = require("./config/multer");
+const RedisClustr = require("redis-clustr");
 const ActivedFlow = mongoose.model("ActivedFlow");
 const ActivedEdge = mongoose.model("ActivedEdge");
 const ActivedNode = mongoose.model("ActivedNode");
 const Post = mongoose.model("Post");
-const multer = require("multer");
-const fs = require("fs");
-const { promisify } = require("util");
-const upload = multer({ storage });
-const moment = require("moment");
-const requireAuth = require("../middlewares/requireAuth");
-const multerConfig = require("./config/multer");
-const RedisClustr = require("redis-clustr");
 const router = express.Router();
+
+const storage = multer.diskStorage({
+  destination: "./files",
+  filename(req, file, cb) {
+    cb(null, `${new Date()}-${file.originalname}`);
+  },
+});
+
+const upload = multer({ storage });
+
+//REDIS SETUP
 const redis = require("redis");
 const util = require("util");
 const client = new RedisClustr({
@@ -34,13 +44,7 @@ let del = util.promisify(client.del).bind(client);
 client.on("error", (err) => {
   console.log("DEU ERRO NO REDIS", err);
 });
-
-const storage = multer.diskStorage({
-  destination: "./files",
-  filename(req, file, cb) {
-    cb(null, `${new Date()}-${file.originalname}`);
-  },
-});
+//FIM REDIS SETUP
 
 router.use(requireAuth);
 
