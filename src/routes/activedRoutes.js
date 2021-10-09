@@ -246,6 +246,7 @@ router.get("/actived-flows/:enterpriseId", async (req, res) => {
       res.status(422).send({ error: err.message });
     }
   } else {
+    console.log("MEMORIA EM CACHE ENVIADA - FLUXOS ATIVOS");
     res.send(result);
   }
 });
