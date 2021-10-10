@@ -12,15 +12,6 @@ const ActivedNode = mongoose.model("ActivedNode");
 const Post = mongoose.model("Post");
 const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: "./files",
-  filename(req, file, cb) {
-    cb(null, `${new Date()}-${file.originalname}`);
-  },
-});
-
-const upload = multer({ storage });
-
 const RedisClustr = require("redis-clustr");
 const redis = require("redis");
 const util = require("util");
@@ -807,6 +798,8 @@ router.put(
     const { originalname: name, size, key, location: url = "" } = req.file;
     const { originalId, type, enterpriseId } = req.body;
 
+    console.log(name);
+
     const post = await Post.create({
       name,
       size,
@@ -816,8 +809,6 @@ router.put(
       type,
       enterpriseId,
     });
-
-    console.log(originalId, type);
 
     return res.json(post);
   }

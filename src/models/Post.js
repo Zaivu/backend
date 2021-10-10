@@ -35,12 +35,13 @@ PostSchema.pre("remove", function () {
       })
       .promise()
       .then((response) => {
-        console.log(response.status);
+        console.log("deu certo", response.status);
       })
       .catch((response) => {
-        console.log(response.status);
+        console.log("erro", response.status);
       });
   } else {
+    console.log("veio aqui");
     return promisify(fs.unlink)(
       path.resolve(__dirname, "..", "..", "tmp", "uploads", this.key)
     );

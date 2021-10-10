@@ -1,8 +1,11 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const User = mongoose.model("User");
+const multer = require("multer");
+const Post = mongoose.model("Post");
 const requireAuth = require("../middlewares/requireAuth");
 const router = express.Router();
+const multerConfig = require("../config/multer");
 
 const RedisClustr = require("redis-clustr");
 const redis = require("redis");
@@ -79,5 +82,58 @@ router.delete(
     }
   }
 );
+
+router.put(
+  "/users/profile/picture/new",
+  multer(multerConfig).single("file"),
+  async (req, res) => {
+    const { originalname: name, size, key, location: url = "" } = req.file;
+    const { originalId, type, enterpriseId } = req.body;
+
+    const oldPost = await Post.findOne({ originalId });
+
+    if (oldPost) {
+      await oldPost.remove();
+    }
+
+    const post = await Post.create({
+      name,
+      size,
+      key,
+      url,
+      originalId,
+      type,
+      enterpriseId,
+    });
+
+    return res.json(post);
+  }
+);
+
+router.get("/users/profile/picture/:originalId", async (req, res) => {
+  const { originalId } = req.params;
+  const picture = await Post.findOne({ originalId });
+
+  if (!picture) {
+    res.send({
+      url: "https://s3.sa-east-1.amazonaws.com/files.zaivu/default-profile-picture",
+    });
+  } else {
+    res.send({ url: picture.url });
+  }
+});
+
+router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
+  const { originalId } = req.params;
+  const post = await Post.findOne({ originalId });
+
+  if (post) {
+    await post.remove();
+  }
+
+  res.send({
+    url: "https://s3.sa-east-1.amazonaws.com/files.zaivu/default-profile-picture",
+  });
+});
 
 module.exports = router;
