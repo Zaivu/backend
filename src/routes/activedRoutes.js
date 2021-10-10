@@ -168,33 +168,6 @@ function walkEndLoop(nodes, edges, item, callback) {
   }
 }
 
-router.get("/posts", async (req, res) => {
-  const posts = await Post.find();
-
-  return res.json(posts);
-});
-
-router.post("/posts", multer(multerConfig).single("file"), async (req, res) => {
-  const { originalname: name, size, key, location: url = "" } = req.file;
-
-  const post = await Post.create({
-    name,
-    size,
-    key,
-    url,
-  });
-
-  return res.json(post);
-});
-
-router.delete("/posts/:id", async (req, res) => {
-  const post = await Post.findById(req.params.id);
-
-  await post.remove();
-
-  return res.send();
-});
-
 router.get("/actived-flows/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;
 
@@ -829,47 +802,47 @@ router.put("/actived-flows/actived-flow/assign-tasks", async (req, res) => {
 
 router.put(
   "/actived-flows/actived-flow/task/new-file",
-  upload.single("file"),
+  multer(multerConfig).single("file"),
   async (req, res) => {
-    const task = await ActivedNode.findOneAndUpdate(
-      { _id: req.body.taskId },
-      {
-        $set: {
-          "data.file": {
-            path: "./files/" + req.file.filename,
-            name: req.file.filename,
-            size: req.file.size,
-            uploaded: true,
-          },
-        },
-      },
-      { new: true }
-    );
+    const { originalname: name, size, key, location: url = "" } = req.file;
+    const { originalId, type, enterpriseId } = req.body;
 
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`activedflows/${task.enterpriseId}`);
+    const post = await Post.create({
+      name,
+      size,
+      key,
+      url,
+      originalId,
+      type,
+      enterpriseId,
+    });
 
-    res.send({ file: task.data.file, taskId: task._id, flowId: task.flowId });
+    console.log(originalId, type);
+
+    return res.json(post);
   }
 );
 
-router.put("/actived-flows/actived-flow/task/remove-file", async (req, res) => {
-  const { path, taskId } = req.body;
+router.delete(
+  "/actived-flows/actived-flow/task/remove-file/:fileId",
+  async (req, res) => {
+    const { fileId } = req.params;
+    const post = await Post.findById(fileId);
 
-  const unlinkAsync = promisify(fs.unlink);
-  await unlinkAsync(path);
+    await post.remove();
 
-  const task = await ActivedNode.findOneAndUpdate(
-    { _id: taskId },
-    { $set: { "data.file": null } },
-    { new: true }
-  );
+    res.send();
+  }
+);
 
-  if (process.env.REDIS_CLUSTER === "true")
-    await del(`activedflows/${task.enterpriseId}`);
-
-  res.send({ taskId: task._id, flowId: task.flowId });
-});
+router.get(
+  "/actived-flows/actived-flow/task/get-files/:originalId",
+  async (req, res) => {
+    const { originalId } = req.params;
+    const posts = await Post.find({ originalId });
+    res.send(posts);
+  }
+);
 
 router.put("/actived-flows/actived-flow/task/new-subtask", async (req, res) => {
   const { taskId, subtask } = req.body;

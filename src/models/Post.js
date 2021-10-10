@@ -11,6 +11,9 @@ const PostSchema = new mongoose.Schema({
   size: Number,
   key: String,
   url: String,
+  originalId: String,
+  type: String,
+  enterpriseId: String,
   createdAt: {
     type: Date,
     default: Date.now,
