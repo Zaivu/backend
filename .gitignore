@@ -2,5 +2,7 @@
 /files
 /node_modules
 .env
+/tmp
+/uploads
 
 
