@@ -116,7 +116,7 @@ router.get("/users/profile/picture/:originalId", async (req, res) => {
 
   if (!picture) {
     res.send({
-      url: "https://s3.sa-east-1.amazonaws.com/files.zaivu/default-profile-picture",
+      url: process.env.DEFAULT_PROFILE_PICTURE,
     });
   } else {
     res.send({ url: picture.url });
@@ -132,7 +132,7 @@ router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
   }
 
   res.send({
-    url: "https://s3.sa-east-1.amazonaws.com/files.zaivu/default-profile-picture",
+    url: process.env.DEFAULT_PROFILE_PICTURE,
   });
 });
 
