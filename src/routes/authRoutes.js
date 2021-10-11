@@ -52,7 +52,11 @@ router.post("/auth/sign-up", async (req, res) => {
       if (process.env.REDIS_CLUSTER === "true")
         await del(`users/${enterpriseId}`);
 
-      res.send({ user });
+      const userCopy = JSON.parse(JSON.stringify(user));
+
+      delete userCopy["password"];
+
+      res.send({ user: userCopy });
     }
   } catch (err) {
     return res.status(422).send(err.message);
@@ -93,10 +97,14 @@ router.post("/auth/sign-in", async (req, res) => {
         _id: user.enterpriseId,
       });
 
+    const userCopy = JSON.parse(JSON.stringify(user));
+
+    delete userCopy["password"];
+
     const response = {
       token,
       refreshToken,
-      user,
+      user: userCopy,
       enterpriseName: userEnterprise.username,
     };
 

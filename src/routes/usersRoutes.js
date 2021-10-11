@@ -55,7 +55,15 @@ router.get("/employees/:enterpriseId", async (req, res) => {
       if (process.env.REDIS_CLUSTER === "true")
         await set(`users/${enterpriseId}`, JSON.stringify(users));
 
-      res.send(users);
+      const usersCopy = JSON.parse(JSON.stringify(users)).map((item) => {
+        delete item["password"];
+
+        return item;
+      });
+
+      console.log(usersCopy);
+
+      res.send(usersCopy);
     } catch (err) {
       return res.status(422).send(err.message);
     }
