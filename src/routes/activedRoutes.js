@@ -229,6 +229,45 @@ router.get("/actived-flows/:enterpriseId/:page", async (req, res) => {
 });
 
 router.get(
+  "/actived-flows/actived-flow/:enterpriseId/:flowId",
+  async (req, res) => {
+    const { enterpriseId, flowId } = req.params;
+
+    try {
+      const flow = await ActivedFlow.findOne({ _id: flowId });
+
+      const nodes = await ActivedNode.find({ flowId: flow._id });
+      const edges = await ActivedEdge.find({ flowId: flow._id });
+
+      const newNodes = nodes.filter(
+        (el) => el.flowId.toString() === flow._id.toString()
+      );
+      const newEdges = edges.filter(
+        (el) => el.flowId.toString() === flow._id.toString()
+      );
+
+      const newFlow = {
+        _id: flow._id,
+        title: flow.title,
+        status: flow.status,
+        createdAt: flow.createdAt,
+        finishedAt: flow.finishedAt,
+        comments: flow.comments,
+        posts: flow.posts,
+        enterpriseId,
+        client: flow.client,
+        lastState: flow.lastState,
+        elements: [...newNodes, ...newEdges],
+      };
+
+      res.send({ flow: newFlow });
+    } catch (err) {
+      res.status(422).send({ error: err.message });
+    }
+  }
+);
+
+router.get(
   "/actived-flows/search/:enterpriseId/:page/:title/:client",
   async (req, res) => {
     const { enterpriseId, page, title, client } = req.params;

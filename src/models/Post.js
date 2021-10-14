@@ -41,7 +41,6 @@ PostSchema.pre("remove", function () {
         console.log("erro", response.status);
       });
   } else {
-    console.log("veio aqui");
     return promisify(fs.unlink)(
       path.resolve(__dirname, "..", "..", "tmp", "uploads", this.key)
     );
