@@ -73,15 +73,19 @@ router.post("/auth/sign-up", async (req, res) => {
 });
 
 router.post("/auth/sign-in", async (req, res) => {
-  const { username, password } = req.body;
+  const { login, password } = req.body;
 
-  if (!username || !password) {
+  if (!login || !password) {
     return res
       .status(422)
       .send({ error: "Must provide username and password" });
   }
 
-  const user = await User.findOne({ $or: [{ email: username }, { username }] });
+  const user = await User.findOne({
+    $or: [{ email: login }, { nickname: login }],
+  });
+
+  console.log(user);
 
   if (!user) {
     return res.status(404).send({ error: "Invalid password or username." });
