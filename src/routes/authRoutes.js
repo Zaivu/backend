@@ -7,6 +7,8 @@ const secret = require("../middlewares/config");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcrypt");
 const router = express.Router();
+const AWS = require("aws-sdk");
+AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 
 const RedisClustr = require("redis-clustr");
 const redis = require("redis");
@@ -40,13 +42,20 @@ if (process.env.REDIS_CLUSTER === "true") {
 }
 
 router.post("/auth/sign-up", async (req, res) => {
-  const { username, password, enterpriseId, rank, email } = req.body;
+  const { nickname, username, password, enterpriseId, rank, email } = req.body;
 
   try {
-    if ((await User.findOne({ username })) || (await User.findOne({ email })))
-      res.send("Email ou usuário já cadastrados");
-    else {
-      const user = new User({ username, password, enterpriseId, rank, email });
+    if ((await User.findOne({ email })) || (await User.findOne({ nickname }))) {
+      res.status(422).send({ error: "Email ou usuário já cadastrados" });
+    } else {
+      const user = new User({
+        nickname,
+        username,
+        password,
+        enterpriseId,
+        rank,
+        email,
+      });
       await user.save();
 
       if (process.env.REDIS_CLUSTER === "true")
@@ -138,6 +147,25 @@ router.post("/auth/new-token", async (req, res) => {
 router.put("/auth/reset-password-email", async (req, res) => {
   const { email } = req.body;
 
+  async function sendEmail(fromAddress, toAddress, subject, body) {
+    const ses = new AWS.SESV2();
+    var params = {
+      Content: {
+        Simple: {
+          Body: {
+            Html: { Data: body, Charset: "UTF-8" }, //ISO-8859-1
+          },
+          Subject: { Data: subject, Charset: "UTF-8" }, //ISO-8859-1
+        },
+      },
+      Destination: { ToAddresses: [toAddress] },
+      FeedbackForwardingEmailAddress: fromAddress,
+      FromEmailAddress: fromAddress,
+      ReplyToAddresses: [fromAddress],
+    };
+    await ses.sendEmail(params).promise();
+  }
+
   crypto.randomBytes(32, (err, buffer) => {
     if (err) console.log(err);
     const token = buffer.toString("hex");
@@ -145,35 +173,13 @@ router.put("/auth/reset-password-email", async (req, res) => {
       if (user) {
         user.resetToken = token;
         user.expireToken = Date.now() + 3600000;
-        user.save().then((result) => {
-          let transporter = nodemailer.createTransport({
-            name: "aprimoro.com",
-            host: "mail.aprimoro.com",
-            port: 587,
-            secure: false,
-            auth: {
-              user: "suporte@aprimoro.com",
-              pass: "Aprimoro@2021",
-            },
-            tls: {
-              rejectUnauthorized: false,
-            },
-          });
-
-          let msg = {
-            from: "suporte@aprimoro.com",
-            to: email,
-            subject: "Redefinir senha",
-            html: `Para redefinir sua senha: <a href="https://movi.aprimoro.com/resetpassword/${token}">Clique aqui</a>`,
-          };
-
-          transporter.sendMail(msg, function (error, info) {
-            if (error) {
-              console.log(error);
-            } else {
-              console.log("Email enviado: " + info.response);
-            }
-          });
+        user.save().then(() => {
+          sendEmail(
+            process.env.DEFAULT_SUPPORT_EMAIL,
+            email,
+            "Redefinir senha",
+            `Para redefinir sua senha: <a href="${process.env.APP_URL}/resetpassword/${token}">Clique aqui</a>`
+          );
         });
       }
     });
@@ -210,21 +216,18 @@ router.put("/auth/edit-username", async (req, res) => {
   const { username, id } = req.body;
 
   try {
-    if (await User.findOne({ username })) res.send("Nome de usuário já existe");
-    else {
-      const newUser = await User.findByIdAndUpdate(
-        id,
-        { username },
-        { new: true }
-      );
+    const newUser = await User.findByIdAndUpdate(
+      id,
+      { username },
+      { new: true }
+    );
 
-      if (newUser.rank === "Funcionário") {
-        if (process.env.REDIS_CLUSTER === "true")
-          await del(`users/${newUser.enterpriseId}`);
-      }
-
-      res.send(newUser);
+    if (newUser.rank === "Funcionário") {
+      if (process.env.REDIS_CLUSTER === "true")
+        await del(`users/${newUser.enterpriseId}`);
     }
+
+    res.send(newUser);
   } catch (err) {
     return res.status(422).send(err.message);
   }
@@ -259,6 +262,30 @@ router.put("/auth/edit-email", async (req, res) => {
       const newUser = await User.findByIdAndUpdate(
         id,
         { email },
+        { new: true }
+      );
+
+      if (newUser.rank === "Funcionário") {
+        if (process.env.REDIS_CLUSTER === "true")
+          await del(`users/${newUser.enterpriseId}`);
+      }
+
+      res.send(newUser);
+    }
+  } catch (err) {
+    return res.status(422).send(err.message);
+  }
+});
+
+router.put("/auth/edit-nickname", async (req, res) => {
+  const { nickname, id } = req.body;
+
+  try {
+    if (await User.findOne({ nickname })) res.send("Apelido já existe");
+    else {
+      const newUser = await User.findByIdAndUpdate(
+        id,
+        { nickname },
         { new: true }
       );
 
