@@ -61,8 +61,6 @@ router.get("/employees/:enterpriseId", async (req, res) => {
         return item;
       });
 
-      console.log(usersCopy);
-
       res.send(usersCopy);
     } catch (err) {
       return res.status(422).send(err.message);
