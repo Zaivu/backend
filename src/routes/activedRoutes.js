@@ -1,9 +1,7 @@
 const express = require("express");
 const moment = require("moment");
 const multer = require("multer");
-const { promisify } = require("util");
 const mongoose = require("mongoose");
-const fs = require("fs");
 const requireAuth = require("../middlewares/requireAuth");
 const multerConfig = require("../config/multer");
 const ActivedFlow = mongoose.model("ActivedFlow");
@@ -11,38 +9,6 @@ const ActivedEdge = mongoose.model("ActivedEdge");
 const ActivedNode = mongoose.model("ActivedNode");
 const Post = mongoose.model("Post");
 const router = express.Router();
-var redisDeletePattern = require("redis-delete-pattern");
-
-const RedisClustr = require("redis-clustr");
-const redis = require("redis");
-const util = require("util");
-let client;
-let get;
-let set;
-let del;
-
-if (process.env.REDIS_CLUSTER === "true") {
-  client = new RedisClustr({
-    servers: [
-      {
-        host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT,
-      },
-    ],
-    createClient: function (port, host) {
-      // this is the default behaviour
-      return redis.createClient(port, host);
-    },
-  });
-
-  get = util.promisify(client.get).bind(client);
-  set = util.promisify(client.set).bind(client);
-  del = util.promisify(client.del).bind(client);
-
-  client.on("error", (err) => {
-    console.log("DEU ERRO NO REDIS", err);
-  });
-}
 
 router.use(requireAuth);
 
@@ -163,68 +129,52 @@ function walkEndLoop(nodes, edges, item, callback) {
 router.get("/actived-flows/:enterpriseId/:page", async (req, res) => {
   const { enterpriseId, page } = req.params;
 
-  let result;
-
-  if (process.env.REDIS_CLUSTER === "true")
-    result = await get(`activedflows/${enterpriseId}/${page}`);
-
-  if (!result) {
-    try {
-      const number_of_pages = Math.ceil(
-        (await ActivedFlow.count({
-          enterpriseId,
-          status: { $ne: ["finished"] },
-        })) / 5
-      );
-
-      const flows = await ActivedFlow.find({
+  try {
+    const number_of_pages = Math.ceil(
+      (await ActivedFlow.count({
         enterpriseId,
         status: { $ne: ["finished"] },
-      })
-        .skip(5 * (page - 1))
-        .limit(5);
-      const idArray = flows.map((item) => item._id);
-      const nodes = await ActivedNode.find({ flowId: { $in: idArray } });
-      const edges = await ActivedEdge.find({ flowId: { $in: idArray } });
+      })) / 5
+    );
 
-      const formatedFlows = flows.map((item) => {
-        const newNodes = nodes.filter(
-          (el) => el.flowId.toString() === item._id.toString()
-        );
-        const newEdges = edges.filter(
-          (el) => el.flowId.toString() === item._id.toString()
-        );
+    const flows = await ActivedFlow.find({
+      enterpriseId,
+      status: { $ne: ["finished"] },
+    })
+      .skip(5 * (page - 1))
+      .limit(5);
+    const idArray = flows.map((item) => item._id);
+    const nodes = await ActivedNode.find({ flowId: { $in: idArray } });
+    const edges = await ActivedEdge.find({ flowId: { $in: idArray } });
 
-        const flow = {
-          _id: item._id,
-          title: item.title,
-          status: item.status,
-          createdAt: item.createdAt,
-          finishedAt: item.finishedAt,
-          comments: item.comments,
-          posts: item.posts,
-          enterpriseId,
-          client: item.client,
-          lastState: item.lastState,
-          elements: [...newNodes, ...newEdges],
-        };
+    const formatedFlows = flows.map((item) => {
+      const newNodes = nodes.filter(
+        (el) => el.flowId.toString() === item._id.toString()
+      );
+      const newEdges = edges.filter(
+        (el) => el.flowId.toString() === item._id.toString()
+      );
 
-        return flow;
-      });
+      const flow = {
+        _id: item._id,
+        title: item.title,
+        status: item.status,
+        createdAt: item.createdAt,
+        finishedAt: item.finishedAt,
+        comments: item.comments,
+        posts: item.posts,
+        enterpriseId,
+        client: item.client,
+        lastState: item.lastState,
+        elements: [...newNodes, ...newEdges],
+      };
 
-      if (process.env.REDIS_CLUSTER === "true")
-        await set(
-          `activedflows/${enterpriseId}/${page}`,
-          JSON.stringify({ flows: formatedFlows, pages: number_of_pages })
-        );
+      return flow;
+    });
 
-      res.send({ flows: formatedFlows, pages: number_of_pages });
-    } catch (err) {
-      res.status(422).send({ error: err.message });
-    }
-  } else {
-    console.log("MEMORIA EM CACHE ENVIADA - FLUXOS ATIVOS");
-    res.send(result);
+    res.send({ flows: formatedFlows, pages: number_of_pages });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
   }
 });
 
@@ -272,9 +222,25 @@ router.get(
   async (req, res) => {
     const { enterpriseId, page, title, client } = req.params;
 
-    //try {
-    const number_of_pages = Math.ceil(
-      (await ActivedFlow.count({
+    try {
+      const number_of_pages = Math.ceil(
+        (await ActivedFlow.count({
+          enterpriseId,
+          status: {
+            $ne: ["finished"],
+          },
+          title: {
+            $regex: title === "undefined" ? RegExp(".*") : title,
+            $options: "i",
+          },
+          client: {
+            $regex: client === "undefined" ? RegExp(".*") : client,
+            $options: "i",
+          },
+        })) / 5
+      );
+
+      const flows = await ActivedFlow.find({
         enterpriseId,
         status: {
           $ne: ["finished"],
@@ -287,59 +253,43 @@ router.get(
           $regex: client === "undefined" ? RegExp(".*") : client,
           $options: "i",
         },
-      })) / 5
-    );
+      })
+        .skip(5 * (page - 1))
+        .limit(5);
 
-    const flows = await ActivedFlow.find({
-      enterpriseId,
-      status: {
-        $ne: ["finished"],
-      },
-      title: {
-        $regex: title === "undefined" ? RegExp(".*") : title,
-        $options: "i",
-      },
-      client: {
-        $regex: client === "undefined" ? RegExp(".*") : client,
-        $options: "i",
-      },
-    })
-      .skip(5 * (page - 1))
-      .limit(5);
+      const idArray = flows.map((item) => item._id);
+      const nodes = await ActivedNode.find({ flowId: { $in: idArray } });
+      const edges = await ActivedEdge.find({ flowId: { $in: idArray } });
 
-    const idArray = flows.map((item) => item._id);
-    const nodes = await ActivedNode.find({ flowId: { $in: idArray } });
-    const edges = await ActivedEdge.find({ flowId: { $in: idArray } });
+      const formatedFlows = flows.map((item) => {
+        const newNodes = nodes.filter(
+          (el) => el.flowId.toString() === item._id.toString()
+        );
+        const newEdges = edges.filter(
+          (el) => el.flowId.toString() === item._id.toString()
+        );
 
-    const formatedFlows = flows.map((item) => {
-      const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === item._id.toString()
-      );
-      const newEdges = edges.filter(
-        (el) => el.flowId.toString() === item._id.toString()
-      );
+        const flow = {
+          _id: item._id,
+          title: item.title,
+          status: item.status,
+          createdAt: item.createdAt,
+          finishedAt: item.finishedAt,
+          comments: item.comments,
+          posts: item.posts,
+          enterpriseId,
+          client: item.client,
+          lastState: item.lastState,
+          elements: [...newNodes, ...newEdges],
+        };
 
-      const flow = {
-        _id: item._id,
-        title: item.title,
-        status: item.status,
-        createdAt: item.createdAt,
-        finishedAt: item.finishedAt,
-        comments: item.comments,
-        posts: item.posts,
-        enterpriseId,
-        client: item.client,
-        lastState: item.lastState,
-        elements: [...newNodes, ...newEdges],
-      };
+        return flow;
+      });
 
-      return flow;
-    });
-
-    res.send({ flows: formatedFlows, pages: number_of_pages });
-    // } catch (err) {
-    //   res.status(422).send({ error: err.message });
-    //}
+      res.send({ flows: formatedFlows, pages: number_of_pages });
+    } catch (err) {
+      res.status(422).send({ error: err.message });
+    }
   }
 );
 
@@ -517,18 +467,6 @@ router.delete(
       await ActivedNode.remove({ flowId });
       await ActivedEdge.remove({ flowId });
 
-      if (process.env.REDIS_CLUSTER === "true")
-        redisDeletePattern(
-          {
-            redis: redis,
-            pattern: `activedflows/${enterpriseId}/`,
-          },
-          function handleError(err) {
-            // Fetch our keys but find nothing
-            console.log("erro ao deletar o redis: ", err);
-          }
-        );
-
       res.send({ flowId });
     } catch (err) {
       res.status(422).send({ error: err.message });
@@ -556,18 +494,6 @@ router.put("/actived-flows/actived-flow/edit-comment", async (req, res) => {
       );
     }
 
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
-
     res.send({ itemId: newItem._id, type, comments: value, flowId });
   } catch (err) {
     res.status(422).send({ error: err.message });
@@ -584,17 +510,6 @@ router.put("/actived-flows/actived-flow/edit-task", async (req, res) => {
       { new: true }
     );
 
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
     res.send({ newTask });
   } catch (err) {
     res.status(422).send({ error: err.message });
@@ -835,18 +750,6 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
       elements: [...newNodes, ...newEdges],
     };
 
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
-
     res.status(200).json({
       flow,
     });
@@ -870,18 +773,6 @@ router.put("/actived-flows/actived-flow/flow-post/new", async (req, res) => {
       { posts },
       { new: true }
     );
-
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
 
     res.send({ newFlow });
   } catch (err) {
@@ -912,18 +803,6 @@ router.put("/actived-flows/actived-flow/undo-task", async (req, res) => {
     );
     const nodes = await ActivedNode.find({ flowId: flowId.flowId });
     const edges = await ActivedEdge.find({ flowId: flowId.flowId });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
 
     res.send({
       newFlow: {
@@ -957,18 +836,6 @@ router.put("/actived-flows/actived-flow/assign-tasks", async (req, res) => {
     const flow = await ActivedFlow.findById(flowId);
     const nodes = await ActivedNode.find({ flowId });
     const edges = await ActivedEdge.find({ flowId });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
 
     res.send({
       flow: {
@@ -1042,17 +909,6 @@ router.put("/actived-flows/actived-flow/task/new-subtask", async (req, res) => {
       { new: true }
     );
 
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
     res.send({ newNode });
   } catch (err) {
     res.status(422).send({ error: err.message });
@@ -1071,17 +927,6 @@ router.put(
         { new: true }
       );
 
-      if (process.env.REDIS_CLUSTER === "true")
-        redisDeletePattern(
-          {
-            redis: redis,
-            pattern: `activedflows/${enterpriseId}/`,
-          },
-          function handleError(err) {
-            // Fetch our keys but find nothing
-            console.log("erro ao deletar o redis: ", err);
-          }
-        );
       res.send({ newNode });
     } catch (err) {
       res.status(422).send({ error: err.message });
@@ -1111,17 +956,6 @@ router.put(
         { new: true }
       );
 
-      if (process.env.REDIS_CLUSTER === "true")
-        redisDeletePattern(
-          {
-            redis: redis,
-            pattern: `activedflows/${enterpriseId}/`,
-          },
-          function handleError(err) {
-            // Fetch our keys but find nothing
-            console.log("erro ao deletar o redis: ", err);
-          }
-        );
       res.send({ newNode });
     } catch (err) {
       res.status(422).send({ error: err.message });
@@ -1139,17 +973,6 @@ router.put("/actived-flows/actived-flow/task/new-title", async (req, res) => {
       { new: true }
     );
 
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
     res.status(200).send({ newNode });
   } catch (err) {
     res.status(422).send({ error: err.message });
@@ -1165,18 +988,6 @@ router.put("/actived-flows/actived-flow/new-title", async (req, res) => {
       { $set: { title: title } },
       { new: true }
     );
-
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
 
     res.status(200).send({ newFlow });
   } catch (err) {
@@ -1200,17 +1011,6 @@ router.put("/actived-flows/actived-flow/task/new-post", async (req, res) => {
       { new: true }
     );
 
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
     res.send({ newTask });
   } catch (err) {
     res.status(422).send({ error: err.message });
@@ -1245,17 +1045,6 @@ router.put(
         { new: true }
       );
 
-      if (process.env.REDIS_CLUSTER === "true")
-        redisDeletePattern(
-          {
-            redis: redis,
-            pattern: `activedflows/${enterpriseId}/`,
-          },
-          function handleError(err) {
-            // Fetch our keys but find nothing
-            console.log("erro ao deletar o redis: ", err);
-          }
-        );
       res.send({ newTask });
     } catch (err) {
       res.status(422).send({ error: err.message });

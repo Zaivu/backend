@@ -7,114 +7,71 @@ const moment = require("moment");
 const requireAuth = require("../middlewares/requireAuth");
 const router = express.Router();
 
-const RedisClustr = require("redis-clustr");
-const redis = require("redis");
-const util = require("util");
-let client;
-let get;
-let set;
-let del;
-
-if (process.env.REDIS_CLUSTER === "true") {
-  client = new RedisClustr({
-    servers: [
-      {
-        host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT,
-      },
-    ],
-    createClient: function (port, host) {
-      // this is the default behaviour
-      return redis.createClient(port, host);
-    },
-  });
-
-  get = util.promisify(client.get).bind(client);
-  set = util.promisify(client.set).bind(client);
-  del = util.promisify(client.del).bind(client);
-
-  client.on("error", (err) => {
-    console.log("DEU ERRO NO REDIS", err);
-  });
-}
-
 router.use(requireAuth);
 
 router.get("/flow-models/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;
 
-  let result;
+  try {
+    const flows = await FlowModel.find({ enterpriseId });
+    const idArray = flows.map((item) => item._id);
+    const nodes = await Node.find({ flowId: { $in: idArray } });
+    const edges = await Edge.find({ flowId: { $in: idArray } });
 
-  if (process.env.REDIS_CLUSTER === "true")
-    result = await get(`modelflows/${enterpriseId}`);
+    const originalFlows = flows.filter(
+      (item) => item.versionNumber === undefined
+    );
 
-  if (!result) {
-    try {
-      const flows = await FlowModel.find({ enterpriseId });
-      const idArray = flows.map((item) => item._id);
-      const nodes = await Node.find({ flowId: { $in: idArray } });
-      const edges = await Edge.find({ flowId: { $in: idArray } });
-
-      const originalFlows = flows.filter(
-        (item) => item.versionNumber === undefined
+    const formatedFlows = originalFlows.map((item) => {
+      const newNodes = nodes.filter(
+        (el) => el.flowId.toString() === item._id.toString()
+      );
+      const newEdges = edges.filter(
+        (el) => el.flowId.toString() === item._id.toString()
       );
 
-      const formatedFlows = originalFlows.map((item) => {
+      const versionFlows = flows.filter(
+        (el) => el?.originalId?.toString() === item._id.toString()
+      );
+
+      const formatedVersionFlows = versionFlows.map((it) => {
         const newNodes = nodes.filter(
-          (el) => el.flowId.toString() === item._id.toString()
+          (el) => el.flowId.toString() === it._id.toString()
         );
         const newEdges = edges.filter(
-          (el) => el.flowId.toString() === item._id.toString()
+          (el) => el.flowId.toString() === it._id.toString()
         );
 
-        const versionFlows = flows.filter(
-          (el) => el?.originalId?.toString() === item._id.toString()
-        );
-
-        const formatedVersionFlows = versionFlows.map((it) => {
-          const newNodes = nodes.filter(
-            (el) => el.flowId.toString() === it._id.toString()
-          );
-          const newEdges = edges.filter(
-            (el) => el.flowId.toString() === it._id.toString()
-          );
-
-          const versionFlow = {
-            title: it.title,
-            _id: it._id,
-            createdAt: it.createdAt,
-            enterpriseId,
-            elements: [...newNodes, ...newEdges],
-            position: it.position,
-            originalId: it.originalId,
-            versionNumber: it.versionNumber,
-          };
-
-          return versionFlow;
-        });
-
-        const flow = {
-          title: item.title,
-          _id: item._id,
-          createdAt: item.createdAt,
+        const versionFlow = {
+          title: it.title,
+          _id: it._id,
+          createdAt: it.createdAt,
           enterpriseId,
           elements: [...newNodes, ...newEdges],
-          versions: formatedVersionFlows,
-          defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
+          position: it.position,
+          originalId: it.originalId,
+          versionNumber: it.versionNumber,
         };
 
-        return flow;
+        return versionFlow;
       });
 
-      if (process.env.REDIS_CLUSTER === "true")
-        await set(`modelflows/${enterpriseId}`, JSON.stringify(formatedFlows));
+      const flow = {
+        title: item.title,
+        _id: item._id,
+        createdAt: item.createdAt,
+        enterpriseId,
+        elements: [...newNodes, ...newEdges],
+        versions: formatedVersionFlows,
+        defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
+      };
 
-      res.send(formatedFlows);
-    } catch (err) {
-      res.status(422).send({ error: err.message });
-    }
-  } else {
-    res.send(result);
+      return flow;
+    });
+
+    res.send(formatedFlows);
+  } catch (err) {
+    res.status(422).send({ error: err.message });
   }
 });
 
@@ -168,9 +125,6 @@ router.post("/flow-models/flow-model/new-flow", async (req, res) => {
     const edges = await Edge.find({ flowId: flow._id });
     const nodes = await Node.find({ flowId: flow._id });
 
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${enterpriseId}`);
-
     res.status(200).json({
       flow: {
         title: flow.title,
@@ -194,9 +148,6 @@ router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
 
     await Node.remove({ flowId });
     await Edge.remove({ flowId });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${flow.enterpriseId}`);
 
     res.send({ flowId });
   } catch (err) {
@@ -231,9 +182,6 @@ router.put("/flow-models/flow-model/edit", async (req, res) => {
 
     const nodes = await Node.find({ flowId: flow._id });
     const edges = await Edge.find({ flowId: flow._id });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${flow.enterpriseId}`);
 
     res.status(200).json({
       flow: {
@@ -277,9 +225,6 @@ router.put("/flow-models/flow-model/edit-version", async (req, res) => {
 
     const nodes = await Node.find({ flowId: versionId });
     const edges = await Edge.find({ flowId: versionId });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${flow.enterpriseId}`);
 
     res.status(200).json({
       flow: {
@@ -339,9 +284,6 @@ router.put("/flow-models/flow-model/new-version", async (req, res) => {
     const edges = await Edge.find({ flowId: flow._id });
     const nodes = await Node.find({ flowId: flow._id });
 
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${enterpriseId}`);
-
     res.status(200).json({
       flow: {
         title: flow.title,
@@ -363,10 +305,7 @@ router.put("/flow-models/flow-model/new-default-version", async (req, res) => {
   const { flowId, defaultVersion } = req.body;
 
   try {
-    const flow = await FlowModel.findByIdAndUpdate(flowId, { defaultVersion });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${flow.enterpriseId}`);
+    await FlowModel.findByIdAndUpdate(flowId, { defaultVersion });
 
     res.status(200).json({ defaultVersion, flowId });
   } catch (err) {
@@ -386,9 +325,6 @@ router.put("/flow-models/flow-model/delete-version", async (req, res) => {
         defaultVersion: "default",
       });
     }
-
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${flow.enterpriseId}`);
 
     res.status(200).json({
       defaultVersion:
@@ -422,9 +358,6 @@ router.put("/flow-models/flow-model/task/edit", async (req, res) => {
 
     const flow = await FlowModel.findOne({ _id: newTask.flowId });
 
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${flow.enterpriseId}`);
-
     if (version === "default") {
       res.send({ newTask, version, flowId: newTask.flowId });
     } else {
@@ -446,9 +379,6 @@ router.put("/flow-models/flow-model/timer/edit", async (req, res) => {
     );
 
     const flow = await FlowModel.findOne({ _id: newTimer.flowId });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      await del(`modelflows/${flow.enterpriseId}`);
 
     if (version === "default") {
       res.send({ newTimer, version, flowId: newTask.flowId });
