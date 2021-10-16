@@ -402,12 +402,21 @@ router.put("/flow-models/flow-model/delete-version", async (req, res) => {
 });
 
 router.put("/flow-models/flow-model/task/edit", async (req, res) => {
-  const { title, expiration, subtasks, taskId, version } = req.body;
+  const { title, expiration, subtasks, taskId, version, attachFile, lockTask } =
+    req.body;
 
   try {
     const newTask = await Node.findOneAndUpdate(
       { _id: taskId },
-      { data: { label: title, expiration, subtasks } },
+      {
+        data: {
+          label: title,
+          expiration,
+          subtasks,
+          attachFile: attachFile,
+          lockTask: lockTask,
+        },
+      },
       { new: true }
     );
 
