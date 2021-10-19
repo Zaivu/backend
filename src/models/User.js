@@ -12,6 +12,9 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: false,
   },
+  enterpriseName: {
+    type: String,
+  },
   password: {
     type: String,
     required: true,
@@ -19,6 +22,9 @@ const userSchema = new mongoose.Schema({
   rank: {
     type: String,
     default: "Funcionário",
+  },
+  status: {
+    type: String,
   },
   resetToken: {
     type: String,

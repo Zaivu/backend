@@ -9,32 +9,58 @@ const router = express.Router();
 const AWS = require("aws-sdk");
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 
-router.post("/auth/sign-up", async (req, res) => {
-  const { nickname, username, password, enterpriseId, rank, email } = req.body;
+async function sendEmail(fromAddress, toAddress, subject, body) {
+  const ses = new AWS.SESV2();
+  var params = {
+    Content: {
+      Simple: {
+        Body: {
+          Html: { Data: body, Charset: "UTF-8" }, //ISO-8859-1
+        },
+        Subject: { Data: subject, Charset: "UTF-8" }, //ISO-8859-1
+      },
+    },
+    Destination: { ToAddresses: [toAddress] },
+    FeedbackForwardingEmailAddress: fromAddress,
+    FromEmailAddress: `Zaivu <${fromAddress}>`,
+    ReplyToAddresses: [fromAddress],
+  };
+  await ses.sendEmail(params).promise();
+}
 
-  try {
-    if ((await User.findOne({ email })) || (await User.findOne({ nickname }))) {
-      res.status(422).send({ error: "Email ou usuário já cadastrados" });
-    } else {
-      const user = new User({
+router.post("/auth/sign-up", async (req, res) => {
+  const { nickname, username, password, email } = req.body;
+
+  //try {
+  if (await User.findOne({ nickname })) {
+    res.status(422).send({ error: "Usuário já cadastrado" });
+  } else {
+    const salt = await bcrypt.genSalt(10);
+
+    const newPass = await bcrypt.hash(password, salt);
+
+    const user = await User.findOneAndUpdate(
+      { email },
+      {
+        password: newPass,
         nickname,
         username,
-        password,
-        enterpriseId,
-        rank,
-        email,
-      });
-      await user.save();
+        expireToken: null,
+        resetToken: null,
+        status: "actived",
+      },
+      { new: true }
+    );
 
-      const userCopy = JSON.parse(JSON.stringify(user));
+    const userCopy = JSON.parse(JSON.stringify(user));
 
-      delete userCopy["password"];
+    delete userCopy["password"];
 
-      res.send({ user: userCopy });
-    }
-  } catch (err) {
-    return res.status(422).send(err.message);
+    res.send({ user: userCopy });
   }
+  // } catch (err) {
+  // return res.status(422).send(err.message);
+  // }
 });
 
 router.post("/auth/sign-in", async (req, res) => {
@@ -49,8 +75,6 @@ router.post("/auth/sign-in", async (req, res) => {
   const user = await User.findOne({
     $or: [{ email: login }, { nickname: login }],
   });
-
-  console.log(user);
 
   if (!user) {
     return res.status(404).send({ error: "Invalid password or username." });
@@ -113,27 +137,26 @@ router.post("/auth/new-token", async (req, res) => {
   );
 });
 
+router.get("/auth/validate-token/:token", async (req, res) => {
+  const { token } = req.params;
+
+  const user = await User.findOne({ resetToken: token });
+
+  if (user) {
+    const enterpriseUser = await User.findById(user.enterpriseId);
+
+    res.send({
+      email: user.email,
+      username: user.username,
+      enterpriseName: enterpriseUser.enterpriseName,
+    });
+  } else {
+    res.send({ error: "not find" });
+  }
+});
+
 router.put("/auth/reset-password-email", async (req, res) => {
   const { email } = req.body;
-
-  async function sendEmail(fromAddress, toAddress, subject, body) {
-    const ses = new AWS.SESV2();
-    var params = {
-      Content: {
-        Simple: {
-          Body: {
-            Html: { Data: body, Charset: "UTF-8" }, //ISO-8859-1
-          },
-          Subject: { Data: subject, Charset: "UTF-8" }, //ISO-8859-1
-        },
-      },
-      Destination: { ToAddresses: [toAddress] },
-      FeedbackForwardingEmailAddress: fromAddress,
-      FromEmailAddress: fromAddress,
-      ReplyToAddresses: [fromAddress],
-    };
-    await ses.sendEmail(params).promise();
-  }
 
   crypto.randomBytes(32, (err, buffer) => {
     if (err) console.log(err);
@@ -147,7 +170,7 @@ router.put("/auth/reset-password-email", async (req, res) => {
             process.env.DEFAULT_SUPPORT_EMAIL,
             email,
             "Redefinir senha",
-            `Para redefinir sua senha: <a href="${process.env.APP_URL}/resetpassword/${token}">Clique aqui</a>`
+            `Para redefinir sua senha (irá expirar em uma hora o link): <a href="${process.env.APP_URL}/resetpassword/${token}">Clique aqui</a>`
           );
         });
       }
@@ -250,6 +273,22 @@ router.put("/auth/edit-nickname", async (req, res) => {
 
       res.send(newUser);
     }
+  } catch (err) {
+    return res.status(422).send(err.message);
+  }
+});
+
+router.put("/auth/edit-enterprise-name", async (req, res) => {
+  const { enterpriseName, id } = req.body;
+
+  try {
+    const newUser = await User.findByIdAndUpdate(
+      id,
+      { enterpriseName },
+      { new: true }
+    );
+
+    res.send(newUser);
   } catch (err) {
     return res.status(422).send(err.message);
   }

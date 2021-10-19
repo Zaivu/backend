@@ -6,6 +6,42 @@ const Post = mongoose.model("Post");
 const requireAuth = require("../middlewares/requireAuth");
 const router = express.Router();
 const multerConfig = require("../config/multer");
+const crypto = require("crypto");
+const AWS = require("aws-sdk");
+AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
+
+async function sendEmail(fromAddress, toAddress, subject, body) {
+  const ses = new AWS.SESV2();
+  var params = {
+    Content: {
+      Simple: {
+        Body: {
+          Html: { Data: body, Charset: "UTF-8" }, //ISO-8859-1
+        },
+        Subject: { Data: subject, Charset: "UTF-8" }, //ISO-8859-1
+      },
+    },
+    Destination: { ToAddresses: [toAddress] },
+    FeedbackForwardingEmailAddress: fromAddress,
+    FromEmailAddress: `Zaivu <${fromAddress}>`,
+    ReplyToAddresses: [fromAddress],
+  };
+  await ses.sendEmail(params).promise();
+}
+
+async function generateToken() {
+  const buffer = await new Promise((resolve, reject) => {
+    crypto.randomBytes(256, function (ex, buffer) {
+      if (ex) {
+        reject("error generating token");
+      }
+      resolve(buffer);
+    });
+  });
+  const token = crypto.createHash("sha1").update(buffer).digest("hex");
+
+  return token;
+}
 
 router.use(requireAuth);
 
@@ -13,10 +49,7 @@ router.get("/employees/:enterpriseId", async (req, res) => {
   const { enterpriseId } = req.params;
 
   try {
-    const users = await User.find({ enterpriseId, rank: "Funcionário" });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      await set(`users/${enterpriseId}`, JSON.stringify(users));
+    const users = await User.find({ enterpriseId });
 
     const usersCopy = JSON.parse(JSON.stringify(users)).map((item) => {
       delete item["password"];
@@ -97,6 +130,65 @@ router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
   res.send({
     url: process.env.DEFAULT_PROFILE_PICTURE,
   });
+});
+
+router.put("/users/send-register-link", async (req, res) => {
+  const { name, email, enterpriseId, rank } = req.body;
+
+  const enterpriseUser = await User.findById(enterpriseId);
+
+  if (await User.findOne({ email })) {
+    res.send({ error: "Email já cadastrado" });
+  } else {
+    const token = await generateToken();
+    const token2 = await generateToken();
+
+    const user = new User({
+      nickname: token,
+      username: name,
+      password: "inactive",
+      enterpriseId: enterpriseId,
+      rank: rank,
+      email: email,
+      resetToken: token2,
+      expireToken: Date.now() + 3600000 * 48,
+      status: "pending",
+    });
+    await user.save();
+
+    sendEmail(
+      process.env.DEFAULT_SUPPORT_EMAIL,
+      email,
+      `Zaivu: Olá ${name}, Bem vindo à ${enterpriseUser.enterpriseName}!`,
+      `Olá ${name}, Bem vindo à ${enterpriseUser.enterpriseName}! Segue abaixo um link de cadastro que irá expirar em 48 horas: <a href="${process.env.APP_URL}/newaccount/${token2}">Clique aqui</a>`
+    );
+
+    let newUser = JSON.parse(JSON.stringify(user));
+    delete newUser["password"];
+
+    res.send({ user: newUser });
+  }
+});
+
+router.put("/users/resend-email", async (req, res) => {
+  const { id } = req.body;
+
+  const token = await generateToken();
+
+  const user = await User.findByIdAndUpdate(id, {
+    resetToken: token,
+    expireToken: Date.now() + 3600000 * 48,
+  });
+  const enterpriseUser = await User.findById(user.enterpriseId);
+
+  sendEmail(
+    process.env.DEFAULT_SUPPORT_EMAIL,
+    user.email,
+    `Zaivu: Olá ${user.username}, Bem vindo à ${enterpriseUser.enterpriseName}!`,
+    `Olá ${user.username}, Bem vindo à ${enterpriseUser.enterpriseName}! Segue abaixo um link de cadastro que irá expirar em 48 horas: <a href="${process.env.APP_URL}/newaccount/${token}">Clique aqui</a>`
+  );
+
+  res.send("Feito");
 });
 
 module.exports = router;

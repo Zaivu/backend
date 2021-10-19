@@ -14,8 +14,12 @@ const modelRoutes = require("./routes/modelRoutes");
 const activedRoutes = require("./routes/activedRoutes");
 const authRoutes = require("./routes/authRoutes");
 const usersRoutes = require("./routes/usersRoutes");
+const activedTaskRoutes = require("./routes/activedTasksRoutes");
 const cors = require("cors");
 const path = require("path");
+const { find } = require("./models/Post");
+const ActivedNode = mongoose.model("ActivedNode");
+const User = mongoose.model("User");
 
 const app = express();
 
@@ -31,10 +35,26 @@ app.get("/", (req, res) => {
   res.status(200).send("ok");
 });
 
+app.get("/testinho", async (req, res) => {
+  const users = await User.find();
+
+  const result = await Promise.all(
+    users.map(async (item) => {
+      await ActivedNode.updateMany(
+        { "data.accountable": item.username },
+        { "data.accountable": item.nickname }
+      );
+    })
+  );
+
+  res.status(200).send(result);
+});
+
 app.use(authRoutes);
 app.use(modelRoutes);
 app.use(activedRoutes);
 app.use(usersRoutes);
+app.use(activedTaskRoutes);
 
 const mongoUri = process.env.MONGO_URL;
 mongoose.connect(mongoUri, {

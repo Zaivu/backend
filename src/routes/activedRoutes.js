@@ -126,20 +126,20 @@ function walkEndLoop(nodes, edges, item, callback) {
   }
 }
 
-router.get("/actived-flows/:enterpriseId/:page", async (req, res) => {
-  const { enterpriseId, page } = req.params;
+router.get("/actived-flows/:enterpriseId/:page/:type", async (req, res) => {
+  const { enterpriseId, page, type } = req.params;
 
   try {
     const number_of_pages = Math.ceil(
       (await ActivedFlow.count({
         enterpriseId,
-        status: { $ne: ["finished"] },
+        status: type === "finished" ? ["finished"] : { $ne: ["finished"] },
       })) / 5
     );
 
     const flows = await ActivedFlow.find({
       enterpriseId,
-      status: { $ne: ["finished"] },
+      status: type === "finished" ? ["finished"] : { $ne: ["finished"] },
     })
       .skip(5 * (page - 1))
       .limit(5);
@@ -179,7 +179,7 @@ router.get("/actived-flows/:enterpriseId/:page", async (req, res) => {
 });
 
 router.get(
-  "/actived-flows/actived-flow/:enterpriseId/:flowId",
+  "/actived-flows/actived-flow/search/:enterpriseId/:flowId",
   async (req, res) => {
     const { enterpriseId, flowId } = req.params;
 
@@ -218,17 +218,15 @@ router.get(
 );
 
 router.get(
-  "/actived-flows/search/:enterpriseId/:page/:title/:client",
+  "/actived-flows/search/:enterpriseId/:page/:title/:client/:type",
   async (req, res) => {
-    const { enterpriseId, page, title, client } = req.params;
+    const { enterpriseId, page, title, client, type } = req.params;
 
     try {
       const number_of_pages = Math.ceil(
         (await ActivedFlow.count({
           enterpriseId,
-          status: {
-            $ne: ["finished"],
-          },
+          status: type === "finished" ? ["finished"] : { $ne: ["finished"] },
           title: {
             $regex: title === "undefined" ? RegExp(".*") : title,
             $options: "i",
@@ -242,9 +240,7 @@ router.get(
 
       const flows = await ActivedFlow.find({
         enterpriseId,
-        status: {
-          $ne: ["finished"],
-        },
+        status: type === "finished" ? ["finished"] : { $ne: ["finished"] },
         title: {
           $regex: title === "undefined" ? RegExp(".*") : title,
           $options: "i",
@@ -421,18 +417,6 @@ router.post("/actived-flows/actived-flow/new", async (req, res) => {
 
     const nodes = await ActivedNode.find({ flowId: activedFlow._id });
     const edges = await ActivedEdge.find({ flowId: activedFlow._id });
-
-    if (process.env.REDIS_CLUSTER === "true")
-      redisDeletePattern(
-        {
-          redis: redis,
-          pattern: `activedflows/${enterpriseId}/`,
-        },
-        function handleError(err) {
-          // Fetch our keys but find nothing
-          console.log("erro ao deletar o redis: ", err);
-        }
-      );
 
     res.status(200).json({
       flow: {
