@@ -96,8 +96,15 @@ router.get(
               (it) => it._id.toString() === item.flowId.toString()
             );
 
-            newItem.data.client = newFlow.client;
-            newItem.data.flowTitle = newFlow.title;
+            if (newFlow.status[0] === "finished") {
+              newItem.data.client = newFlow.client;
+              newItem.data.flowTitle = newFlow.title;
+              newItem.data.flowType = "finished";
+            } else {
+              newItem.data.client = newFlow.client;
+              newItem.data.flowTitle = newFlow.title;
+              newItem.data.flowType = "actived";
+            }
 
             tasks.push(newItem);
           }
@@ -161,8 +168,15 @@ router.get(
             (it) => it._id.toString() === item.flowId.toString()
           );
 
-          newItem.data.client = newFlow.client;
-          newItem.data.flowTitle = newFlow.title;
+          if (newFlow.status[0] === "finished") {
+            newItem.data.client = newFlow.client;
+            newItem.data.flowTitle = newFlow.title;
+            newItem.data.flowType = "finished";
+          } else {
+            newItem.data.client = newFlow.client;
+            newItem.data.flowTitle = newFlow.title;
+            newItem.data.flowType = "actived";
+          }
 
           return newItem;
         });
