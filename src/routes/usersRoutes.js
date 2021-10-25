@@ -51,11 +51,18 @@ router.get("/employees/:enterpriseId", async (req, res) => {
   try {
     const users = await User.find({ enterpriseId });
 
+    const user = await User.findById(enterpriseId);
+
+    let userCopy = JSON.parse(JSON.stringify(user));
+    delete userCopy["password"];
+
     const usersCopy = JSON.parse(JSON.stringify(users)).map((item) => {
       delete item["password"];
 
       return item;
     });
+
+    usersCopy.push(userCopy);
 
     res.send(usersCopy);
   } catch (err) {
