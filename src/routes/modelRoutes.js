@@ -9,38 +9,104 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-router.get("/flow-models/:enterpriseId", async (req, res) => {
-  const { enterpriseId } = req.params;
+router.get("/flow-models/:enterpriseId/:page", async (req, res) => {
+  const { enterpriseId, page } = req.params;
 
-  try {
-    const flows = await FlowModel.find({ enterpriseId });
-    const idArray = flows.map((item) => item._id);
-    const nodes = await Node.find({ flowId: { $in: idArray } });
-    const edges = await Edge.find({ flowId: { $in: idArray } });
+  //try {
+  const number_of_pages = Math.ceil(
+    (await FlowModel.count({
+      enterpriseId,
+      defaultVersion: null,
+    })) / 5
+  );
 
-    const originalFlows = flows.filter(
-      (item) => item.versionNumber === undefined
+  console.log(number_of_pages);
+
+  const flows = await FlowModel.find({ enterpriseId })
+    .skip(5 * (page - 1))
+    .limit(5);
+  const idArray = flows.map((item) => item._id);
+  const nodes = await Node.find({ flowId: { $in: idArray } });
+  const edges = await Edge.find({ flowId: { $in: idArray } });
+
+  const originalFlows = flows.filter(
+    (item) => item.versionNumber === undefined
+  );
+
+  const formatedFlows = originalFlows.map((item) => {
+    const newNodes = nodes.filter(
+      (el) => el.flowId.toString() === item._id.toString()
+    );
+    const newEdges = edges.filter(
+      (el) => el.flowId.toString() === item._id.toString()
     );
 
-    const formatedFlows = originalFlows.map((item) => {
+    const versionFlows = flows.filter(
+      (el) => el?.originalId?.toString() === item._id.toString()
+    );
+
+    const formatedVersionFlows = versionFlows.map((it) => {
       const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === item._id.toString()
+        (el) => el.flowId.toString() === it._id.toString()
       );
       const newEdges = edges.filter(
-        (el) => el.flowId.toString() === item._id.toString()
+        (el) => el.flowId.toString() === it._id.toString()
       );
 
-      const versionFlows = flows.filter(
-        (el) => el?.originalId?.toString() === item._id.toString()
-      );
+      const versionFlow = {
+        title: it.title,
+        _id: it._id,
+        createdAt: it.createdAt,
+        enterpriseId,
+        elements: [...newNodes, ...newEdges],
+        position: it.position,
+        originalId: it.originalId,
+        versionNumber: it.versionNumber,
+      };
 
-      const formatedVersionFlows = versionFlows.map((it) => {
-        const newNodes = nodes.filter(
-          (el) => el.flowId.toString() === it._id.toString()
-        );
-        const newEdges = edges.filter(
-          (el) => el.flowId.toString() === it._id.toString()
-        );
+      return versionFlow;
+    });
+
+    const flow = {
+      title: item.title,
+      _id: item._id,
+      createdAt: item.createdAt,
+      enterpriseId,
+      elements: [...newNodes, ...newEdges],
+      versions: formatedVersionFlows,
+      defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
+    };
+
+    return flow;
+  });
+
+  res.send({ flows: formatedFlows, pages: number_of_pages });
+  //} catch (err) {
+  //  res.status(422).send({ error: err.message });
+  //}
+});
+
+router.get(
+  "/flow-models/flow/search/:enterpriseId/:flowId",
+  async (req, res) => {
+    const { enterpriseId, flowId } = req.params;
+
+    //  try {
+    const flow = await FlowModel.findById(flowId);
+
+    const nodes = await Node.find({ flowId });
+    const edges = await Edge.find({ flowId });
+
+    const versionFlows = await FlowModel.find({
+      originalId: flowId,
+    });
+
+    console.log(versionFlows);
+
+    const formatedVersionFlows = await Promise.all(
+      versionFlows?.map(async (it) => {
+        const newNodes = await Node.find({ flowId: it._id });
+        const newEdges = await Edge.find({ flowId: it._id });
 
         const versionFlow = {
           title: it.title,
@@ -54,26 +120,115 @@ router.get("/flow-models/:enterpriseId", async (req, res) => {
         };
 
         return versionFlow;
+      })
+    );
+
+    const newFlow = {
+      title: flow.title,
+      _id: flow._id,
+      createdAt: flow.createdAt,
+      enterpriseId,
+      elements: [...nodes, ...edges],
+      versions: formatedVersionFlows,
+      defaultVersion: flow.defaultVersion ? flow.defaultVersion : "default",
+    };
+
+    console.log(newFlow.defaultVersion);
+
+    res.send({ flow: newFlow });
+    // } catch (err) {
+    //   res.status(422).send({ error: err.message });
+    // }
+  }
+);
+
+router.get(
+  "/model-flows/search/:enterpriseId/:page/:title",
+  async (req, res) => {
+    const { enterpriseId, page, title } = req.params;
+
+    try {
+      const number_of_pages = Math.ceil(
+        (await FlowModel.count({
+          enterpriseId,
+          title: {
+            $regex: title === "undefined" ? RegExp(".*") : title,
+            $options: "i",
+          },
+        })) / 5
+      );
+
+      const flows = await FlowModel.find({
+        enterpriseId,
+        title: {
+          $regex: title === "undefined" ? RegExp(".*") : title,
+          $options: "i",
+        },
+      })
+        .skip(5 * (page - 1))
+        .limit(5);
+
+      const idArray = flows.map((item) => item._id);
+      const nodes = await Node.find({ flowId: { $in: idArray } });
+      const edges = await Edge.find({ flowId: { $in: idArray } });
+
+      const originalFlows = flows.filter(
+        (item) => item.versionNumber === undefined
+      );
+
+      const formatedFlows = originalFlows.map((item) => {
+        const newNodes = nodes.filter(
+          (el) => el.flowId.toString() === item._id.toString()
+        );
+        const newEdges = edges.filter(
+          (el) => el.flowId.toString() === item._id.toString()
+        );
+
+        const versionFlows = flows.filter(
+          (el) => el?.originalId?.toString() === item._id.toString()
+        );
+
+        const formatedVersionFlows = versionFlows.map((it) => {
+          const newNodes = nodes.filter(
+            (el) => el.flowId.toString() === it._id.toString()
+          );
+          const newEdges = edges.filter(
+            (el) => el.flowId.toString() === it._id.toString()
+          );
+
+          const versionFlow = {
+            title: it.title,
+            _id: it._id,
+            createdAt: it.createdAt,
+            enterpriseId,
+            elements: [...newNodes, ...newEdges],
+            position: it.position,
+            originalId: it.originalId,
+            versionNumber: it.versionNumber,
+          };
+
+          return versionFlow;
+        });
+
+        const flow = {
+          title: item.title,
+          _id: item._id,
+          createdAt: item.createdAt,
+          enterpriseId,
+          elements: [...newNodes, ...newEdges],
+          versions: formatedVersionFlows,
+          defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
+        };
+
+        return flow;
       });
 
-      const flow = {
-        title: item.title,
-        _id: item._id,
-        createdAt: item.createdAt,
-        enterpriseId,
-        elements: [...newNodes, ...newEdges],
-        versions: formatedVersionFlows,
-        defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
-      };
-
-      return flow;
-    });
-
-    res.send(formatedFlows);
-  } catch (err) {
-    res.status(422).send({ error: err.message });
+      res.send({ flows: formatedFlows, pages: number_of_pages });
+    } catch (err) {
+      res.status(422).send({ error: err.message });
+    }
   }
-});
+);
 
 router.post("/flow-models/flow-model/new-flow", async (req, res) => {
   const { title, elements, enterpriseId } = req.body;

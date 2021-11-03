@@ -151,7 +151,6 @@ router.put("/users/send-register-link", async (req, res) => {
     const token2 = await generateToken();
 
     const user = new User({
-      nickname: token,
       username: name,
       password: "inactive",
       enterpriseId: enterpriseId,

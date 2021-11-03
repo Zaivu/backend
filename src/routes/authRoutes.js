@@ -29,35 +29,32 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
 }
 
 router.post("/auth/sign-up", async (req, res) => {
-  const { nickname, username, password, email } = req.body;
+  const { username, password, email } = req.body;
 
   //try {
-  if (await User.findOne({ nickname })) {
-    res.status(422).send({ error: "Usuário já cadastrado" });
-  } else {
-    const salt = await bcrypt.genSalt(10);
 
-    const newPass = await bcrypt.hash(password, salt);
+  const salt = await bcrypt.genSalt(10);
 
-    const user = await User.findOneAndUpdate(
-      { email },
-      {
-        password: newPass,
-        nickname,
-        username,
-        expireToken: null,
-        resetToken: null,
-        status: "actived",
-      },
-      { new: true }
-    );
+  const newPass = await bcrypt.hash(password, salt);
 
-    const userCopy = JSON.parse(JSON.stringify(user));
+  const user = await User.findOneAndUpdate(
+    { email },
+    {
+      password: newPass,
+      username,
+      expireToken: null,
+      resetToken: null,
+      status: "actived",
+    },
+    { new: true }
+  );
 
-    delete userCopy["password"];
+  const userCopy = JSON.parse(JSON.stringify(user));
 
-    res.send({ user: userCopy });
-  }
+  delete userCopy["password"];
+
+  res.send({ user: userCopy });
+
   // } catch (err) {
   // return res.status(422).send(err.message);
   // }
@@ -72,9 +69,7 @@ router.post("/auth/sign-in", async (req, res) => {
       .send({ error: "Must provide username and password" });
   }
 
-  const user = await User.findOne({
-    $or: [{ email: login }, { nickname: login }],
-  });
+  const user = await User.findOne({ email: login });
 
   if (!user) {
     return res.status(404).send({ error: "Invalid password or username." });
@@ -249,25 +244,6 @@ router.put("/auth/edit-email", async (req, res) => {
       const newUser = await User.findByIdAndUpdate(
         id,
         { email },
-        { new: true }
-      );
-
-      res.send(newUser);
-    }
-  } catch (err) {
-    return res.status(422).send(err.message);
-  }
-});
-
-router.put("/auth/edit-nickname", async (req, res) => {
-  const { nickname, id } = req.body;
-
-  try {
-    if (await User.findOne({ nickname })) res.send("Apelido já existe");
-    else {
-      const newUser = await User.findByIdAndUpdate(
-        id,
-        { nickname },
         { new: true }
       );
 

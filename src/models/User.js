@@ -2,11 +2,6 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema({
-  nickname: {
-    type: String,
-    required: true,
-    unique: true,
-  },
   username: {
     type: String,
     required: true,
@@ -35,6 +30,7 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     require: true,
+    unique: true,
   },
   enterpriseId: {
     type: mongoose.Schema.Types.ObjectId,
