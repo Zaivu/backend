@@ -31,23 +31,6 @@ app.use(
   express.static(path.resolve(__dirname, "..", "tmp", "uploads"))
 );
 
-app.get("/um", async (req, res) => {
-  const users = await User.find();
-
-  const newUsers = JSON.parse(JSON.stringify(users));
-
-  const result = await Promise.all(
-    newUsers.map(async (item) => {
-      await ActivedNode.updateMany(
-        { "data.accountable": item.nickname },
-        { "data.accountable": item.email }
-      );
-    })
-  );
-
-  res.status(200).send(result);
-});
-
 app.get("/", (req, res) => {
   res.status(200).send("ok");
 });
