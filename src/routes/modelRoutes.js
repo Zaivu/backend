@@ -16,13 +16,13 @@ router.get("/flow-models/:enterpriseId/:page", async (req, res) => {
   const number_of_pages = Math.ceil(
     (await FlowModel.count({
       enterpriseId,
-      defaultVersion: null,
+      versionNumber: null,
     })) / 5
   );
 
   console.log(number_of_pages);
 
-  const flows = await FlowModel.find({ enterpriseId })
+  const flows = await FlowModel.find({ enterpriseId, versionNumber: null })
     .skip(5 * (page - 1))
     .limit(5);
   const idArray = flows.map((item) => item._id);
@@ -233,65 +233,65 @@ router.get(
 router.post("/flow-models/flow-model/new-flow", async (req, res) => {
   const { title, elements, enterpriseId } = req.body;
 
-  try {
-    const nowLocal = moment().utcOffset(-180);
+  //try {
+  const nowLocal = moment().utcOffset(-180);
 
-    const flowModel = new FlowModel({
-      title: title,
-      createdAt: nowLocal,
-      enterpriseId,
-    });
+  const flowModel = new FlowModel({
+    title: title,
+    createdAt: nowLocal,
+    enterpriseId,
+  });
 
-    const flow = await flowModel.save();
+  const flow = await flowModel.save();
 
-    await Promise.all(
-      elements.map(async (item) => {
-        if (item.source) {
-          const edge = new Edge({
+  await Promise.all(
+    elements.map(async (item) => {
+      if (item.source) {
+        const edge = new Edge({
+          ...item,
+          flowId: flowModel._id,
+          enterpriseId,
+        });
+        await edge.save();
+      } else {
+        if (item.type === "customMark" || item.type === "customText") {
+          const node = new Node({
+            ...item,
+            flowId: flowModel._id,
+            enterpriseId,
+            data: {
+              ...item.data,
+              referenceId: flowModel._id,
+            },
+          });
+          await node.save();
+        } else {
+          const node = new Node({
             ...item,
             flowId: flowModel._id,
             enterpriseId,
           });
-          await edge.save();
-        } else {
-          if (item.type === "customMark" || item.type === "customText") {
-            const node = new Node({
-              ...item,
-              flowId: flowModel._id,
-              enterpriseId,
-              data: {
-                ...item.data,
-                referenceId: flowModel._id,
-              },
-            });
-            await node.save();
-          } else {
-            const node = new Node({
-              ...item,
-              flowId: flowModel._id,
-              enterpriseId,
-            });
-            await node.save();
-          }
+          await node.save();
         }
-      })
-    );
+      }
+    })
+  );
 
-    const edges = await Edge.find({ flowId: flow._id });
-    const nodes = await Node.find({ flowId: flow._id });
+  const edges = await Edge.find({ flowId: flow._id });
+  const nodes = await Node.find({ flowId: flow._id });
 
-    res.status(200).json({
-      flow: {
-        title: flow.title,
-        _id: flow._id,
-        createdAt: flow.createdAt,
-        enterpriseId: flow.enterpriseId,
-        elements: [...nodes, ...edges],
-      },
-    });
-  } catch (err) {
-    res.status(422).send({ error: err.message });
-  }
+  res.status(200).json({
+    flow: {
+      title: flow.title,
+      _id: flow._id,
+      createdAt: flow.createdAt,
+      enterpriseId: flow.enterpriseId,
+      elements: [...nodes, ...edges],
+    },
+  });
+  //} catch (err) {
+  // res.status(422).send({ error: err.message });
+  //}
 });
 
 router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
