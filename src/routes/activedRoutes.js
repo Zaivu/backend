@@ -189,13 +189,23 @@ router.get(
       const nodes = await ActivedNode.find({ flowId: flow._id });
       const edges = await ActivedEdge.find({ flowId: flow._id });
 
-      const newNodes = nodes.filter(
+      let newNodes = nodes.filter(
         (el) => el.flowId.toString() === flow._id.toString()
+      );
+      const newNodes1 = await Promise.all(
+        newNodes.map(async (item) => {
+          if (item.type === "task") {
+            let newItem = JSON.parse(JSON.stringify(item));
+            newItem.data.attachLength = await Post.count({
+              originalId: item._id,
+            });
+            return newItem;
+          } else return item;
+        })
       );
       const newEdges = edges.filter(
         (el) => el.flowId.toString() === flow._id.toString()
       );
-
       const newFlow = {
         _id: flow._id,
         title: flow.title,
@@ -207,9 +217,9 @@ router.get(
         enterpriseId,
         client: flow.client,
         lastState: flow.lastState,
-        elements: [...newNodes, ...newEdges],
+        elements: [...newNodes1, ...newEdges],
       };
-
+      console.log("Hello There");
       res.send({ flow: newFlow });
     } catch (err) {
       res.status(422).send({ error: err.message });

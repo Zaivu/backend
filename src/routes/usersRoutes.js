@@ -113,9 +113,18 @@ router.put(
   }
 );
 
-router.get("/users/profile/picture/:originalId", async (req, res) => {
-  const { originalId } = req.params;
-  const picture = await Post.findOne({ originalId });
+router.get("/users/profile/picture/:originalId/:type", async (req, res) => {
+  const { originalId, type } = req.params;
+  var picture;
+  const user =
+    type === "email"
+      ? await User.findOne({
+          email: originalId,
+        })
+      : await User.findOne({
+          _id: originalId,
+        });
+  picture = await Post.findOne({ originalId: user._id });
 
   if (!picture) {
     res.send({
