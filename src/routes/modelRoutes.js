@@ -101,8 +101,6 @@ router.get(
       originalId: flowId,
     });
 
-    console.log(versionFlows);
-
     const formatedVersionFlows = await Promise.all(
       versionFlows?.map(async (it) => {
         const newNodes = await Node.find({ flowId: it._id });
@@ -504,6 +502,7 @@ router.put("/flow-models/flow-model/task/edit", async (req, res) => {
           label: title,
           expiration,
           subtasks,
+          status: "model",
           attachFile: attachFile,
           lockTask: lockTask,
         },
