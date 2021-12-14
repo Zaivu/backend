@@ -200,7 +200,9 @@ router.get(
               originalId: item._id,
             });
             return newItem;
-          } else return item;
+          } else {
+            return item;
+          }
         })
       );
       const newEdges = edges.filter(
@@ -219,7 +221,6 @@ router.get(
         lastState: flow.lastState,
         elements: [...newNodes1, ...newEdges],
       };
-      console.log("Hello There");
       res.send({ flow: newFlow });
     } catch (err) {
       res.status(422).send({ error: err.message });
