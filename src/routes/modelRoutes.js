@@ -91,52 +91,52 @@ router.get(
   async (req, res) => {
     const { enterpriseId, flowId } = req.params;
 
-    //  try {
-    const flow = await FlowModel.findById(flowId);
+    try {
+      const flow = await FlowModel.findById(flowId);
 
-    const nodes = await Node.find({ flowId });
-    const edges = await Edge.find({ flowId });
+      const nodes = await Node.find({ flowId });
+      const edges = await Edge.find({ flowId });
 
-    const versionFlows = await FlowModel.find({
-      originalId: flowId,
-    });
+      const versionFlows = await FlowModel.find({
+        originalId: flowId,
+      });
 
-    const formatedVersionFlows = await Promise.all(
-      versionFlows?.map(async (it) => {
-        const newNodes = await Node.find({ flowId: it._id });
-        const newEdges = await Edge.find({ flowId: it._id });
+      const formatedVersionFlows = await Promise.all(
+        versionFlows?.map(async (it) => {
+          const newNodes = await Node.find({ flowId: it._id });
+          const newEdges = await Edge.find({ flowId: it._id });
 
-        const versionFlow = {
-          title: it.title,
-          _id: it._id,
-          createdAt: it.createdAt,
-          enterpriseId,
-          elements: [...newNodes, ...newEdges],
-          position: it.position,
-          originalId: it.originalId,
-          versionNumber: it.versionNumber,
-        };
+          const versionFlow = {
+            title: it.title,
+            _id: it._id,
+            createdAt: it.createdAt,
+            enterpriseId,
+            elements: [...newNodes, ...newEdges],
+            position: it.position,
+            originalId: it.originalId,
+            versionNumber: it.versionNumber,
+          };
 
-        return versionFlow;
-      })
-    );
+          return versionFlow;
+        })
+      );
 
-    const newFlow = {
-      title: flow.title,
-      _id: flow._id,
-      createdAt: flow.createdAt,
-      enterpriseId,
-      elements: [...nodes, ...edges],
-      versions: formatedVersionFlows,
-      defaultVersion: flow.defaultVersion ? flow.defaultVersion : "default",
-    };
+      const newFlow = {
+        title: flow.title,
+        _id: flow._id,
+        createdAt: flow.createdAt,
+        enterpriseId,
+        elements: [...nodes, ...edges],
+        versions: formatedVersionFlows,
+        defaultVersion: flow.defaultVersion ? flow.defaultVersion : "default",
+      };
 
-    console.log(newFlow.defaultVersion);
+      console.log(newFlow.defaultVersion);
 
-    res.send({ flow: newFlow });
-    // } catch (err) {
-    //   res.status(422).send({ error: err.message });
-    // }
+      res.send({ flow: newFlow });
+    } catch (err) {
+      res.status(422).send({ error: err.message });
+    }
   }
 );
 
