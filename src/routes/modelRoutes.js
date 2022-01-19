@@ -9,83 +9,83 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+// ? Paginação
 router.get("/flow-models/:enterpriseId/:page", async (req, res) => {
   const { enterpriseId, page } = req.params;
 
-  //try {
-  const number_of_pages = Math.ceil(
-    (await FlowModel.count({
-      enterpriseId,
-      versionNumber: null,
-    })) / 5
-  );
-
-  console.log(number_of_pages);
-
-  const flows = await FlowModel.find({ enterpriseId, versionNumber: null })
-    .skip(5 * (page - 1))
-    .limit(5);
-  const idArray = flows.map((item) => item._id);
-  const nodes = await Node.find({ flowId: { $in: idArray } });
-  const edges = await Edge.find({ flowId: { $in: idArray } });
-
-  const originalFlows = flows.filter(
-    (item) => item.versionNumber === undefined
-  );
-
-  const formatedFlows = originalFlows.map((item) => {
-    const newNodes = nodes.filter(
-      (el) => el.flowId.toString() === item._id.toString()
-    );
-    const newEdges = edges.filter(
-      (el) => el.flowId.toString() === item._id.toString()
+  try {
+    const number_of_pages = Math.ceil(
+      (await FlowModel.count({
+        enterpriseId,
+        versionNumber: null,
+      })) / 5
     );
 
-    const versionFlows = flows.filter(
-      (el) => el?.originalId?.toString() === item._id.toString()
+    const flows = await FlowModel.find({ enterpriseId, versionNumber: null })
+      .skip(5 * (page - 1))
+      .limit(5);
+    const idArray = flows.map((item) => item._id);
+    const nodes = await Node.find({ flowId: { $in: idArray } });
+    const edges = await Edge.find({ flowId: { $in: idArray } });
+
+    const originalFlows = flows.filter(
+      (item) => item.versionNumber === undefined
     );
 
-    const formatedVersionFlows = versionFlows.map((it) => {
+    const formatedFlows = originalFlows.map((item) => {
       const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === it._id.toString()
+        (el) => el.flowId.toString() === item._id.toString()
       );
       const newEdges = edges.filter(
-        (el) => el.flowId.toString() === it._id.toString()
+        (el) => el.flowId.toString() === item._id.toString()
       );
 
-      const versionFlow = {
-        title: it.title,
-        _id: it._id,
-        createdAt: it.createdAt,
+      const versionFlows = flows.filter(
+        (el) => el?.originalId?.toString() === item._id.toString()
+      );
+
+      const formatedVersionFlows = versionFlows.map((it) => {
+        const newNodes = nodes.filter(
+          (el) => el.flowId.toString() === it._id.toString()
+        );
+        const newEdges = edges.filter(
+          (el) => el.flowId.toString() === it._id.toString()
+        );
+
+        const versionFlow = {
+          title: it.title,
+          _id: it._id,
+          createdAt: it.createdAt,
+          enterpriseId,
+          elements: [...newNodes, ...newEdges],
+          position: it.position,
+          originalId: it.originalId,
+          versionNumber: it.versionNumber,
+        };
+
+        return versionFlow;
+      });
+
+      const flow = {
+        title: item.title,
+        _id: item._id,
+        createdAt: item.createdAt,
         enterpriseId,
         elements: [...newNodes, ...newEdges],
-        position: it.position,
-        originalId: it.originalId,
-        versionNumber: it.versionNumber,
+        versions: formatedVersionFlows,
+        defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
       };
 
-      return versionFlow;
+      return flow;
     });
 
-    const flow = {
-      title: item.title,
-      _id: item._id,
-      createdAt: item.createdAt,
-      enterpriseId,
-      elements: [...newNodes, ...newEdges],
-      versions: formatedVersionFlows,
-      defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
-    };
-
-    return flow;
-  });
-
-  res.send({ flows: formatedFlows, pages: number_of_pages });
-  //} catch (err) {
-  //  res.status(422).send({ error: err.message });
-  //}
+    res.send({ flows: formatedFlows, pages: number_of_pages });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
 });
 
+// ? FetchSingleFlow
 router.get(
   "/flow-models/flow/search/:enterpriseId/:flowId",
   async (req, res) => {
@@ -139,7 +139,7 @@ router.get(
     }
   }
 );
-
+// ? SearchFlow
 router.get(
   "/model-flows/search/:enterpriseId/:page/:title",
   async (req, res) => {
@@ -227,42 +227,30 @@ router.get(
     }
   }
 );
-
+// ? Novo Fluxo
 router.post("/flow-models/flow-model/new-flow", async (req, res) => {
   const { title, elements, enterpriseId } = req.body;
 
-  //try {
-  const nowLocal = moment().utcOffset(-180);
+  try {
+    const nowLocal = moment().utcOffset(-180);
 
-  const flowModel = new FlowModel({
-    title: title,
-    createdAt: nowLocal,
-    enterpriseId,
-  });
+    const flowModel = new FlowModel({
+      title: title,
+      createdAt: nowLocal,
+      enterpriseId,
+    });
 
-  const flow = await flowModel.save();
+    const flow = await flowModel.save();
 
-  await Promise.all(
-    elements.map(async (item) => {
-      if (item.source) {
-        const edge = new Edge({
-          ...item,
-          flowId: flowModel._id,
-          enterpriseId,
-        });
-        await edge.save();
-      } else {
-        if (item.type === "customMark" || item.type === "customText") {
-          const node = new Node({
+    await Promise.all(
+      elements.map(async (item) => {
+        if (item.source) {
+          const edge = new Edge({
             ...item,
             flowId: flowModel._id,
             enterpriseId,
-            data: {
-              ...item.data,
-              referenceId: flowModel._id,
-            },
           });
-          await node.save();
+          await edge.save();
         } else {
           const node = new Node({
             ...item,
@@ -271,27 +259,26 @@ router.post("/flow-models/flow-model/new-flow", async (req, res) => {
           });
           await node.save();
         }
-      }
-    })
-  );
+      })
+    );
 
-  const edges = await Edge.find({ flowId: flow._id });
-  const nodes = await Node.find({ flowId: flow._id });
+    const edges = await Edge.find({ flowId: flow._id });
+    const nodes = await Node.find({ flowId: flow._id });
 
-  res.status(200).json({
-    flow: {
-      title: flow.title,
-      _id: flow._id,
-      createdAt: flow.createdAt,
-      enterpriseId: flow.enterpriseId,
-      elements: [...nodes, ...edges],
-    },
-  });
-  //} catch (err) {
-  // res.status(422).send({ error: err.message });
-  //}
+    res.status(200).json({
+      flow: {
+        title: flow.title,
+        _id: flow._id,
+        createdAt: flow.createdAt,
+        enterpriseId: flow.enterpriseId,
+        elements: [...nodes, ...edges],
+      },
+    });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
 });
-
+// ? Deletar Fluxo
 router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
   const { flowId } = req.params;
 
@@ -307,9 +294,66 @@ router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
+// ? Atualizar fluxo (substitui todas as edições de fluxo)
+router.put("/flow-models/flow-model/update", async (req, res) => {
+  const { elements, title, _id, versionTitle } = req.body;
 
+  try {
+    let flow;
+
+    if (versionTitle) {
+      flow = await FlowModel.findOneAndUpdate(
+        { _id },
+        { versionNumber: versionTitle, title: title },
+        { new: true, useFindAndModify: false }
+      );
+    } else {
+      flow = await FlowModel.findOneAndUpdate(
+        { _id },
+        { title: title },
+        { new: true, useFindAndModify: false }
+      );
+    }
+
+    await Node.remove({ flowId: _id });
+    await Edge.remove({ flowId: _id });
+
+    await Promise.all(
+      elements.map(async (item) => {
+        if (item.source) {
+          const edge = new Edge({ ...item, flowId: _id });
+          await edge.save();
+        } else {
+          const node = new Node({ ...item, flowId: _id });
+          await node.save();
+        }
+      })
+    );
+
+    const allNodes = await Node.find({ flowId: _id });
+    const allEdges = await Edge.find({ flowId: _id });
+
+    res.status(200).json({
+      updatedFlow: {
+        title: flow.title,
+        _id: flow._id,
+        createdAt: flow.createdAt,
+        enterpriseId: flow.enterpriseId,
+        elements: [...allNodes, ...allEdges],
+
+        ...(flow.versionNumber && { versionNumber: flow.versionNumber }),
+        ...(flow.originalId && { originalId: flow.originalId }),
+      },
+    });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+// ? Edição
 router.put("/flow-models/flow-model/edit", async (req, res) => {
   const { title, elements, _id } = req.body;
+
+  console.log(req.body);
 
   try {
     const flow = await FlowModel.findOneAndUpdate(
@@ -350,7 +394,7 @@ router.put("/flow-models/flow-model/edit", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-
+// ? Edição de versão
 router.put("/flow-models/flow-model/edit-version", async (req, res) => {
   const { elements, version, versionId, enterpriseId } = req.body;
 
@@ -395,7 +439,7 @@ router.put("/flow-models/flow-model/edit-version", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-
+// ? Adiciona nova versão
 router.put("/flow-models/flow-model/new-version", async (req, res) => {
   const { title, elements, versionNumber, enterpriseId, _id } = req.body;
 
@@ -453,7 +497,7 @@ router.put("/flow-models/flow-model/new-version", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-
+// ? Seta como padrão
 router.put("/flow-models/flow-model/new-default-version", async (req, res) => {
   const { flowId, defaultVersion } = req.body;
 
@@ -465,7 +509,7 @@ router.put("/flow-models/flow-model/new-default-version", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-
+// ? Deleta versão de fluxo
 router.put("/flow-models/flow-model/delete-version", async (req, res) => {
   const { versionNumber, originalId } = req.body;
 
@@ -489,7 +533,7 @@ router.put("/flow-models/flow-model/delete-version", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-
+// ? Edição de tarefa (flowViewer)
 router.put("/flow-models/flow-model/task/edit", async (req, res) => {
   const { title, expiration, subtasks, taskId, version, attachFile, lockTask } =
     req.body;
@@ -521,7 +565,7 @@ router.put("/flow-models/flow-model/task/edit", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-
+// ? Edição de Temporizador (flowViewer)
 router.put("/flow-models/flow-model/timer/edit", async (req, res) => {
   const { expiration, timerId, version } = req.body;
 
