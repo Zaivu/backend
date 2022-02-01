@@ -131,8 +131,6 @@ router.get(
         defaultVersion: flow.defaultVersion ? flow.defaultVersion : "default",
       };
 
-      console.log(newFlow.defaultVersion);
-
       res.send({ flow: newFlow });
     } catch (err) {
       res.status(422).send({ error: err.message });
@@ -227,17 +225,19 @@ router.get(
     }
   }
 );
-// ? Novo Fluxo
-router.post("/flow-models/flow-model/new-flow", async (req, res) => {
-  const { title, elements, enterpriseId } = req.body;
+// ? Novo Modelo de Fluxo(substitui /new-flow e /new-version)
+router.post("/flow-models/flow-model/new-flow-model", async (req, res) => {
+  const { title, elements, enterpriseId, _id, versionNumber } = req.body;
 
   try {
     const nowLocal = moment().utcOffset(-180);
 
     const flowModel = new FlowModel({
-      title: title,
+      title,
       createdAt: nowLocal,
       enterpriseId,
+      ...(_id && { originalId: _id }),
+      ...(versionNumber && { versionNumber: versionNumber }),
     });
 
     const flow = await flowModel.save();
@@ -262,8 +262,8 @@ router.post("/flow-models/flow-model/new-flow", async (req, res) => {
       })
     );
 
-    const edges = await Edge.find({ flowId: flow._id });
-    const nodes = await Node.find({ flowId: flow._id });
+    const allEdges = await Edge.find({ flowId: flow._id });
+    const allNodes = await Node.find({ flowId: flow._id });
 
     res.status(200).json({
       flow: {
@@ -271,30 +271,17 @@ router.post("/flow-models/flow-model/new-flow", async (req, res) => {
         _id: flow._id,
         createdAt: flow.createdAt,
         enterpriseId: flow.enterpriseId,
-        elements: [...nodes, ...edges],
+        elements: [...allNodes, ...allEdges],
+        ...(_id && { originalId: flow.originalId }),
+        ...(versionNumber && { versionNumber: flow.versionNumber }),
       },
     });
   } catch (err) {
     res.status(422).send({ error: err.message });
   }
 });
-// ? Deletar Fluxo
-router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
-  const { flowId } = req.params;
 
-  try {
-    const flow = await FlowModel.findOne({ _id: flowId });
-    await FlowModel.findOneAndRemove({ _id: flowId });
-
-    await Node.remove({ flowId });
-    await Edge.remove({ flowId });
-
-    res.send({ flowId });
-  } catch (err) {
-    res.status(422).send({ error: err.message });
-  }
-});
-// ? Atualizar fluxo (substitui todas as edições de fluxo)
+// ? Atualizar fluxo (substitui /edit e /edit-version)
 router.put("/flow-models/flow-model/update", async (req, res) => {
   const { elements, title, _id, versionTitle } = req.body;
 
@@ -349,6 +336,133 @@ router.put("/flow-models/flow-model/update", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
+
+// ? Novo Fluxo
+router.post("/flow-models/flow-model/new-flow", async (req, res) => {
+  const { title, elements, enterpriseId } = req.body;
+
+  try {
+    const nowLocal = moment().utcOffset(-180);
+
+    const flowModel = new FlowModel({
+      title: title,
+      createdAt: nowLocal,
+      enterpriseId,
+    });
+
+    const flow = await flowModel.save();
+
+    await Promise.all(
+      elements.map(async (item) => {
+        if (item.source) {
+          const edge = new Edge({
+            ...item,
+            flowId: flowModel._id,
+            enterpriseId,
+          });
+          await edge.save();
+        } else {
+          const node = new Node({
+            ...item,
+            flowId: flowModel._id,
+            enterpriseId,
+          });
+          await node.save();
+        }
+      })
+    );
+
+    const edges = await Edge.find({ flowId: flow._id });
+    const nodes = await Node.find({ flowId: flow._id });
+
+    res.status(200).json({
+      flow: {
+        title: flow.title,
+        _id: flow._id,
+        createdAt: flow.createdAt,
+        enterpriseId: flow.enterpriseId,
+        elements: [...nodes, ...edges],
+      },
+    });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+// ? Adiciona nova versão
+router.put("/flow-models/flow-model/new-version", async (req, res) => {
+  const { title, elements, versionNumber, enterpriseId, _id } = req.body;
+
+  try {
+    const nowLocal = moment().utcOffset(-180);
+    const allflows = await FlowModel.find({ originalId: _id });
+
+    const flowModel = new FlowModel({
+      title: title,
+      createdAt: nowLocal,
+      enterpriseId,
+      originalId: _id,
+      position: allflows?.length + 1,
+      versionNumber: versionNumber,
+    });
+
+    const flow = await flowModel.save();
+
+    await Promise.all(
+      elements.map(async (item) => {
+        if (item.source) {
+          const edge = new Edge({
+            ...item,
+            flowId: flowModel._id,
+            enterpriseId,
+          });
+          await edge.save();
+        } else {
+          const node = new Node({
+            ...item,
+            flowId: flowModel._id,
+            enterpriseId,
+          });
+          await node.save();
+        }
+      })
+    );
+
+    const edges = await Edge.find({ flowId: flow._id });
+    const nodes = await Node.find({ flowId: flow._id });
+
+    res.status(200).json({
+      flow: {
+        title: flow.title,
+        _id: flow._id,
+        createdAt: flow.createdAt,
+        enterpriseId: flow.enterpriseId,
+        elements: [...nodes, ...edges],
+        originalId: flow.originalId,
+        position: flow.position,
+        versionNumber: versionNumber,
+      },
+    });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+// ? Deletar Fluxo
+router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
+  const { flowId } = req.params;
+
+  try {
+    const flow = await FlowModel.findOne({ _id: flowId });
+    await FlowModel.findOneAndRemove({ _id: flowId });
+
+    await Node.remove({ flowId });
+    await Edge.remove({ flowId });
+
+    res.send({ flowId });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+
 // ? Edição
 router.put("/flow-models/flow-model/edit", async (req, res) => {
   const { title, elements, _id } = req.body;
@@ -439,64 +553,7 @@ router.put("/flow-models/flow-model/edit-version", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-// ? Adiciona nova versão
-router.put("/flow-models/flow-model/new-version", async (req, res) => {
-  const { title, elements, versionNumber, enterpriseId, _id } = req.body;
 
-  try {
-    const nowLocal = moment().utcOffset(-180);
-    const allflows = await FlowModel.find({ originalId: _id });
-
-    const flowModel = new FlowModel({
-      title: title,
-      createdAt: nowLocal,
-      enterpriseId,
-      originalId: _id,
-      position: allflows?.length + 1,
-      versionNumber: versionNumber,
-    });
-
-    const flow = await flowModel.save();
-
-    await Promise.all(
-      elements.map(async (item) => {
-        if (item.source) {
-          const edge = new Edge({
-            ...item,
-            flowId: flowModel._id,
-            enterpriseId,
-          });
-          await edge.save();
-        } else {
-          const node = new Node({
-            ...item,
-            flowId: flowModel._id,
-            enterpriseId,
-          });
-          await node.save();
-        }
-      })
-    );
-
-    const edges = await Edge.find({ flowId: flow._id });
-    const nodes = await Node.find({ flowId: flow._id });
-
-    res.status(200).json({
-      flow: {
-        title: flow.title,
-        _id: flow._id,
-        createdAt: flow.createdAt,
-        enterpriseId: flow.enterpriseId,
-        elements: [...nodes, ...edges],
-        originalId: flow.originalId,
-        position: flow.position,
-        versionNumber: versionNumber,
-      },
-    });
-  } catch (err) {
-    res.status(422).send({ error: err.message });
-  }
-});
 // ? Seta como padrão
 router.put("/flow-models/flow-model/new-default-version", async (req, res) => {
   const { flowId, defaultVersion } = req.body;
