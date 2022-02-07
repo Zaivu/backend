@@ -240,6 +240,8 @@ router.post("/flow-models/flow-model/new-flow-model", async (req, res) => {
       ...(versionNumber && { versionNumber: versionNumber }),
     });
 
+    console.log(flowModel);
+
     const flow = await flowModel.save();
 
     await Promise.all(
