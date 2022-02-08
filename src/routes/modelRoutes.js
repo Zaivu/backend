@@ -240,8 +240,6 @@ router.post("/flow-models/flow-model/new-flow-model", async (req, res) => {
       ...(versionNumber && { versionNumber: versionNumber }),
     });
 
-    console.log(flowModel);
-
     const flow = await flowModel.save();
 
     await Promise.all(
@@ -332,6 +330,39 @@ router.put("/flow-models/flow-model/update", async (req, res) => {
 
         ...(flow.versionNumber && { versionNumber: flow.versionNumber }),
         ...(flow.originalId && { originalId: flow.originalId }),
+      },
+    });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+
+// ? Renomeia um fluxo qualquer
+router.put("/flow-models/flow-model/rename", async (req, res) => {
+  const { title, _id, versionTitle } = req.body;
+
+  try {
+    let flow;
+
+    if (versionTitle) {
+      flow = await FlowModel.findOneAndUpdate(
+        { _id },
+        { versionNumber: versionTitle },
+        { new: true, useFindAndModify: false }
+      );
+    } else {
+      flow = await FlowModel.findOneAndUpdate(
+        { _id },
+        { title: title },
+        { new: true, useFindAndModify: false }
+      );
+    }
+
+    res.status(200).json({
+      flowData: {
+        flowId: flow._id,
+        title: flow.title,
+        versionNumber: flow.versionNumber,
       },
     });
   } catch (err) {
