@@ -479,22 +479,6 @@ router.put("/flow-models/flow-model/new-version", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-// ? Deletar Fluxo
-router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
-  const { flowId } = req.params;
-
-  try {
-    const flow = await FlowModel.findOne({ _id: flowId });
-    await FlowModel.findOneAndRemove({ _id: flowId });
-
-    await Node.remove({ flowId });
-    await Edge.remove({ flowId });
-
-    res.send({ flowId });
-  } catch (err) {
-    res.status(422).send({ error: err.message });
-  }
-});
 
 // ? Edição
 router.put("/flow-models/flow-model/edit", async (req, res) => {
@@ -592,13 +576,66 @@ router.put("/flow-models/flow-model/new-default-version", async (req, res) => {
   const { flowId, defaultVersion } = req.body;
 
   try {
-    await FlowModel.findByIdAndUpdate(flowId, { defaultVersion });
+    await FlowModel.findByIdAndUpdate(
+      flowId,
+      { defaultVersion },
+      { useFindAndModify: false }
+    );
 
     res.status(200).json({ defaultVersion, flowId });
   } catch (err) {
     res.status(422).send({ error: err.message });
   }
 });
+// ? Deletar um Fluxo qualquer (versão ou normal)
+router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
+  const { flowId } = req.params;
+
+  try {
+    const flow = await FlowModel.findOne({ _id: flowId });
+    await FlowModel.findOneAndRemove({ _id: flowId });
+
+    await Node.remove({ flowId });
+    await Edge.remove({ flowId });
+
+    res.send({ message: `Id: ${flowId} deletado com sucesso.` });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+// ? Deleta o Fluxo raiz e suas versões (se existirem)
+router.delete(
+  "/flow-models/flow-model/delete-all/:flowId",
+  async (req, res) => {
+    const { flowId } = req.params;
+
+    try {
+      const allVersions = await FlowModel.find({ originalId: flowId });
+
+      if (allVersions) {
+        allVersions.forEach(async (item) => {
+          await Node.remove({ flowId: item._id });
+          await Edge.remove({ flowId: item._id });
+          await FlowModel.findOneAndRemove({ _id: item._id });
+        });
+      }
+
+      await FlowModel.findOneAndRemove({ _id: flowId });
+      const nodes = await Node.remove({ flowId });
+      const edges = await Edge.remove({ flowId });
+
+      res.status(200).send({
+        message: `Id: ${flowId} deletado com sucesso.`,
+        allVersions: allVersions.length,
+        Nodes: nodes.length,
+        Edges: edges.length,
+      });
+    } catch (err) {
+      res.status(422).send({ error: err.message });
+    }
+  }
+);
+
 // ? Deleta versão de fluxo
 router.put("/flow-models/flow-model/delete-version", async (req, res) => {
   const { versionNumber, originalId } = req.body;
