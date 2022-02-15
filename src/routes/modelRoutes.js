@@ -587,25 +587,33 @@ router.put("/flow-models/flow-model/new-default-version", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-// ? Deletar um Fluxo qualquer (versão ou normal)
-router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
-  const { flowId } = req.params;
-
-  try {
-    const flow = await FlowModel.findOne({ _id: flowId });
-    await FlowModel.findOneAndRemove({ _id: flowId });
-
-    await Node.remove({ flowId });
-    await Edge.remove({ flowId });
-
-    res.send({ message: `Id: ${flowId} deletado com sucesso.` });
-  } catch (err) {
-    res.status(422).send({ error: err.message });
-  }
-});
-// ? Deleta o Fluxo raiz e suas versões (se existirem)
+// ? Deletar um Fluxo qualquer (versão)
 router.delete(
-  "/flow-models/flow-model/delete-all/:flowId",
+  "/flow-models/flow-model/delete/:flowId",
+  async (req, res, next) => {
+    const { flowId } = req.params;
+
+    try {
+      const flow = await FlowModel.findOne({ _id: flowId });
+
+      if (!flow) {
+        throw new Error("Exception: undefined _id");
+      }
+      await FlowModel.findOneAndRemove({ _id: flowId });
+
+      await Node.remove({ flowId });
+      await Edge.remove({ flowId });
+
+      res.send({ message: `Id: ${flowId} deletado com sucesso.`, id: flowId });
+    } catch (err) {
+      next(err);
+      res.status(422).send({ error: err });
+    }
+  }
+);
+// ? Deleta o Projeto raiz e suas versões (se existirem)
+router.delete(
+  "/flow-models/flow-model/delete/project/:flowId",
   async (req, res) => {
     const { flowId } = req.params;
 
@@ -627,8 +635,6 @@ router.delete(
       res.status(200).send({
         message: `Id: ${flowId} deletado com sucesso.`,
         allVersions: allVersions.length,
-        Nodes: nodes.length,
-        Edges: edges.length,
       });
     } catch (err) {
       res.status(422).send({ error: err.message });
