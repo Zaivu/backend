@@ -31,33 +31,57 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
 router.post("/auth/sign-up", async (req, res) => {
   const { username, password, email } = req.body;
 
-  //try {
+  try {
+    const salt = await bcrypt.genSalt(10);
 
-  const salt = await bcrypt.genSalt(10);
+    const newPass = await bcrypt.hash(password, salt);
 
-  const newPass = await bcrypt.hash(password, salt);
+    const user = await User.findOneAndUpdate(
+      { email },
+      {
+        password: newPass,
+        username,
+        expireToken: null,
+        resetToken: null,
+        status: "actived",
+      },
+      { new: true }
+    );
 
-  const user = await User.findOneAndUpdate(
-    { email },
-    {
+    const userCopy = JSON.parse(JSON.stringify(user));
+
+    delete userCopy["password"];
+
+    res.send({ user: userCopy });
+  } catch (err) {
+    return res.status(422).send(err.message);
+  }
+});
+
+router.post("/auth/create-user/admin", async (req, res) => {
+  const { username, password, email } = req.body;
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const newPass = await bcrypt.hash(password, salt);
+
+    const user = new User({
+      username: username,
+      email: email,
       password: newPass,
-      username,
-      expireToken: null,
-      resetToken: null,
-      status: "actived",
-    },
-    { new: true }
-  );
+      rank: "Gerente",
+    });
 
-  const userCopy = JSON.parse(JSON.stringify(user));
+    await user.save();
 
-  delete userCopy["password"];
+    const userCopy = JSON.parse(JSON.stringify(user));
 
-  res.send({ user: userCopy });
+    delete userCopy["password"];
 
-  // } catch (err) {
-  // return res.status(422).send(err.message);
-  // }
+    res.send({ user: userCopy });
+  } catch (err) {
+    return res.status(422).send(err.message);
+  }
 });
 
 router.post("/auth/sign-in", async (req, res) => {
