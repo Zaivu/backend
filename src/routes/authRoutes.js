@@ -28,7 +28,7 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
   await ses.sendEmail(params).promise();
 }
 
-router.post("/auth/sign-up/employee", async (req, res) => {
+router.post("/auth/sign-up/", async (req, res) => {
   const { username, password, email } = req.body;
 
   try {
@@ -58,7 +58,7 @@ router.post("/auth/sign-up/employee", async (req, res) => {
   }
 });
 
-router.post("/auth/sign-up/admin", async (req, res) => {
+router.post("/auth/create-user/admin", async (req, res) => {
   const { username, password, email } = req.body;
 
   try {
