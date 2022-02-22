@@ -18,12 +18,12 @@ router.get("/flow-models/:enterpriseId/:page", async (req, res) => {
       (await FlowModel.count({
         enterpriseId,
         versionNumber: null,
-      })) / 5
+      })) / 4
     );
 
     const flows = await FlowModel.find({ enterpriseId, versionNumber: null })
-      .skip(5 * (page - 1))
-      .limit(5);
+      .skip(4 * (page - 1))
+      .limit(4);
     const idArray = flows.map((item) => item._id);
     const nodes = await Node.find({ flowId: { $in: idArray } });
     const edges = await Edge.find({ flowId: { $in: idArray } });
