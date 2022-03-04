@@ -692,6 +692,7 @@ router.delete(
       res.status(200).send({
         message: `Id: ${flowId} deletado com sucesso.`,
         allVersions: allVersions.length,
+        flowId: flowId,
       });
     } catch (err) {
       res.status(422).send({ error: err.message });
