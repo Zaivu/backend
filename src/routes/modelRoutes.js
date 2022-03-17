@@ -13,77 +13,52 @@ router.use(requireAuth);
 router.get("/flow-models/:enterpriseId/:page", async (req, res) => {
   const { enterpriseId, page } = req.params;
 
-  try {
-    const number_of_pages = Math.ceil(
-      (await FlowModel.count({
-        enterpriseId,
-        versionNumber: null,
-      })) / 4
-    );
+  //try {
+  const number_of_pages = Math.ceil(
+    (await FlowModel.count({
+      enterpriseId,
+      versionNumber: null,
+    })) / 4
+  );
 
-    const flows = await FlowModel.find({ enterpriseId, versionNumber: null })
-      .skip(4 * (page - 1))
-      .limit(4);
-    const idArray = flows.map((item) => item._id);
-    const nodes = await Node.find({ flowId: { $in: idArray } });
-    const edges = await Edge.find({ flowId: { $in: idArray } });
+  const flows = await FlowModel.find({ enterpriseId, versionNumber: null })
+    .skip(4 * (page - 1))
+    .limit(4);
 
-    const originalFlows = flows.filter(
-      (item) => item.versionNumber === undefined
-    );
+  const originalFlows = flows.filter(
+    (item) => item.versionNumber === undefined
+  );
 
-    const formatedFlows = originalFlows.map((item) => {
-      const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === item._id.toString()
-      );
-      const newEdges = edges.filter(
-        (el) => el.flowId.toString() === item._id.toString()
-      );
+  const allFlowsVersions = await FlowModel.find({
+    enterpriseId,
+    versionNumber: { $exists: true },
+  });
 
-      const versionFlows = flows.filter(
-        (el) => el?.originalId?.toString() === item._id.toString()
-      );
+  const formatedFlows = originalFlows.map((item) => {
+    const flow = {
+      title: item.title,
+      _id: item._id,
+      createdAt: item.createdAt,
+      enterpriseId,
+      ...(item.lastUpdate && { lastUpdate: item.lastUpdate }),
+      defaultVersion:
+        item.defaultVersion !== "default" ? item.defaultVersion : "Original",
+      defaultVersionName:
+        item.defaultVersion !== "default"
+          ? allFlowsVersions.find(
+              (it) =>
+                JSON.stringify(item.defaultVersion) === JSON.stringify(it._id)
+            )?.versionNumber
+          : "default",
+    };
 
-      const formatedVersionFlows = versionFlows.map((it) => {
-        const newNodes = nodes.filter(
-          (el) => el.flowId.toString() === it._id.toString()
-        );
-        const newEdges = edges.filter(
-          (el) => el.flowId.toString() === it._id.toString()
-        );
+    return flow;
+  });
 
-        const versionFlow = {
-          title: it.title,
-          _id: it._id,
-          createdAt: it.createdAt,
-          enterpriseId,
-          elements: [...newNodes, ...newEdges],
-          position: it.position,
-          originalId: it.originalId,
-          versionNumber: it.versionNumber,
-        };
-
-        return versionFlow;
-      });
-
-      const flow = {
-        title: item.title,
-        _id: item._id,
-        createdAt: item.createdAt,
-        enterpriseId,
-        elements: [...newNodes, ...newEdges],
-        versions: formatedVersionFlows,
-        ...(item.lastUpdate && { lastUpdate: item.lastUpdate }),
-        defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
-      };
-
-      return flow;
-    });
-
-    res.send({ flows: formatedFlows, pages: number_of_pages });
-  } catch (err) {
-    res.status(422).send({ error: err.message });
-  }
+  res.send({ flows: formatedFlows, pages: number_of_pages });
+  // } catch (err) {
+  //  res.status(422).send({ error: err.message });
+  //}
 });
 
 // ? FetchSingleFlow
