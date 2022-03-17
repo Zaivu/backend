@@ -27,6 +27,9 @@ const flowModelSchema = new mongoose.Schema({
     type: String,
     default: "default",
   },
+  lastUpdate: {
+    type: Date,
+  },
 });
 
 mongoose.model("FlowModel", flowModelSchema);

@@ -73,6 +73,7 @@ router.get("/flow-models/:enterpriseId/:page", async (req, res) => {
         enterpriseId,
         elements: [...newNodes, ...newEdges],
         versions: formatedVersionFlows,
+        ...(item.lastUpdate && { lastUpdate: item.lastUpdate }),
         defaultVersion: item.defaultVersion ? item.defaultVersion : "default",
       };
 
@@ -93,7 +94,6 @@ router.get(
 
     try {
       const flow = await FlowModel.findById(flowId);
-
       const nodes = await Node.find({ flowId });
       const edges = await Edge.find({ flowId });
 
@@ -129,6 +129,7 @@ router.get(
         elements: [...nodes, ...edges],
         versions: formatedVersionFlows,
         defaultVersion: flow.defaultVersion ? flow.defaultVersion : "default",
+        ...(flow.lastUpdate && { lastUpdate: flow.lastUpdate }),
       };
 
       res.send({ flow: newFlow });
@@ -225,7 +226,8 @@ router.get(
     }
   }
 );
-// ? Novo Modelo de Fluxo(substitui /new-flow e /new-version)
+// ? Novo Modelo de Fluxo(substitui /new-flow e /new-version) ps: n testada no front
+// ! Descontinuado
 router.post("/flow-models/flow-model/new-flow-model", async (req, res) => {
   const { title, elements, enterpriseId, _id, versionNumber } = req.body;
 
@@ -281,23 +283,32 @@ router.post("/flow-models/flow-model/new-flow-model", async (req, res) => {
   }
 });
 
-// ? Atualizar fluxo (substitui /edit e /edit-version)
+// ? Atualizar fluxo (substitui /edit e /edit-version) ps: testada e usada no front
+// ! Descontinuado
 router.put("/flow-models/flow-model/update", async (req, res) => {
-  const { elements, title, _id, versionTitle } = req.body;
+  const { elements, title, _id, versionTitle, originalId } = req.body;
 
   try {
+    const nowLocal = moment().utcOffset(-180);
     let flow;
 
+    //Caso seja uma versão
     if (versionTitle) {
       flow = await FlowModel.findOneAndUpdate(
         { _id },
         { versionNumber: versionTitle, title: title },
         { new: true, useFindAndModify: false }
       );
+      await FlowModel.findOneAndUpdate(
+        { _id: originalId },
+        { lastUpdate: nowLocal },
+        { new: true, useFindAndModify: false }
+      );
     } else {
+      //Caso seja o projeto principal
       flow = await FlowModel.findOneAndUpdate(
         { _id },
-        { title: title },
+        { title: title, lastUpdate: nowLocal },
         { new: true, useFindAndModify: false }
       );
     }
@@ -326,6 +337,7 @@ router.put("/flow-models/flow-model/update", async (req, res) => {
         _id: flow._id,
         createdAt: flow.createdAt,
         enterpriseId: flow.enterpriseId,
+        lastUpdate: nowLocal,
         elements: [...allNodes, ...allEdges],
 
         ...(flow.versionNumber && { versionNumber: flow.versionNumber }),
@@ -333,6 +345,50 @@ router.put("/flow-models/flow-model/update", async (req, res) => {
       },
     });
   } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+
+// ? Renomeia um fluxo qualquer (projeto ou versão)
+router.put("/flow-models/flow-model/rename", async (req, res, next) => {
+  const { title, _id, versionTitle, originalId } = req.body;
+
+  try {
+    const nowLocal = moment().utcOffset(-180);
+    let flow;
+
+    //Caso seja uma versão
+    if (versionTitle) {
+      flow = await FlowModel.findOneAndUpdate(
+        { _id },
+        { versionNumber: versionTitle },
+        { new: true, useFindAndModify: false }
+      );
+      await FlowModel.findOneAndUpdate(
+        { _id: originalId },
+        { lastUpdate: nowLocal },
+        { new: true, useFindAndModify: false }
+      );
+    } else {
+      //Caso seja o projeto
+      flow = await FlowModel.findOneAndUpdate(
+        { _id: originalId },
+        { title: title, lastUpdate: nowLocal },
+        { new: true, useFindAndModify: false }
+      );
+    }
+
+    res.status(200).json({
+      flowData: {
+        _id: flow._id,
+        title: flow.title,
+        ...(flow.versionNumber && { versionNumber: flow.versionNumber }),
+        lastUpdate: nowLocal,
+        originalId: originalId,
+      },
+    });
+  } catch (err) {
+    next(err);
     res.status(422).send({ error: err.message });
   }
 });
@@ -348,6 +404,7 @@ router.post("/flow-models/flow-model/new-flow", async (req, res) => {
       title: title,
       createdAt: nowLocal,
       enterpriseId,
+      lastUpdate: nowLocal,
     });
 
     const flow = await flowModel.save();
@@ -396,6 +453,12 @@ router.put("/flow-models/flow-model/new-version", async (req, res) => {
     const nowLocal = moment().utcOffset(-180);
     const allflows = await FlowModel.find({ originalId: _id });
 
+    await FlowModel.findOneAndUpdate(
+      { _id: _id },
+      { lastUpdate: nowLocal },
+      { new: true, useFindAndModify: false }
+    );
+
     const flowModel = new FlowModel({
       title: title,
       createdAt: nowLocal,
@@ -441,39 +504,23 @@ router.put("/flow-models/flow-model/new-version", async (req, res) => {
         position: flow.position,
         versionNumber: versionNumber,
       },
+      lastUpdate: nowLocal,
     });
   } catch (err) {
     res.status(422).send({ error: err.message });
   }
 });
-// ? Deletar Fluxo
-router.delete("/flow-models/flow-model/delete/:flowId", async (req, res) => {
-  const { flowId } = req.params;
 
-  try {
-    const flow = await FlowModel.findOne({ _id: flowId });
-    await FlowModel.findOneAndRemove({ _id: flowId });
-
-    await Node.remove({ flowId });
-    await Edge.remove({ flowId });
-
-    res.send({ flowId });
-  } catch (err) {
-    res.status(422).send({ error: err.message });
-  }
-});
-
-// ? Edição
+// ? Edição de projeto
 router.put("/flow-models/flow-model/edit", async (req, res) => {
   const { title, elements, _id } = req.body;
-
-  console.log(req.body);
-
   try {
+    const nowLocal = moment().utcOffset(-180);
+
     const flow = await FlowModel.findOneAndUpdate(
       { _id },
-      { title },
-      { new: true }
+      { title: title, lastUpdate: nowLocal },
+      { new: true, useFindAndModify: false }
     );
 
     await Node.remove({ flowId: _id });
@@ -500,6 +547,7 @@ router.put("/flow-models/flow-model/edit", async (req, res) => {
         _id: flow._id,
         createdAt: flow.createdAt,
         enterpriseId: flow.enterpriseId,
+        lastUpdate: flow.lastUpdate,
         elements: [...nodes, ...edges],
         versions: flow.versions ? flow.versions : [],
       },
@@ -510,13 +558,22 @@ router.put("/flow-models/flow-model/edit", async (req, res) => {
 });
 // ? Edição de versão
 router.put("/flow-models/flow-model/edit-version", async (req, res) => {
-  const { elements, version, versionId, enterpriseId } = req.body;
+  const { elements, version, versionId, projectId } = req.body;
 
   try {
+    const nowLocal = moment().utcOffset(-180);
+
     const flow = await FlowModel.findOneAndUpdate(
       { _id: versionId },
       { versionNumber: version },
       { new: true }
+    );
+
+    //Atualizando a ultima modificação
+    await FlowModel.findOneAndUpdate(
+      { _id: projectId },
+      { lastUpdate: nowLocal },
+      { new: true, useFindAndModify: false }
     );
 
     await Node.remove({ flowId: versionId });
@@ -545,8 +602,9 @@ router.put("/flow-models/flow-model/edit-version", async (req, res) => {
         enterpriseId: flow.enterpriseId,
         elements: [...nodes, ...edges],
         originalId: flow.originalId,
-        position: flow.position,
+        lastUpdate: nowLocal,
         versionNumber: version,
+        // position: flow.position,
       },
     });
   } catch (err) {
@@ -559,14 +617,89 @@ router.put("/flow-models/flow-model/new-default-version", async (req, res) => {
   const { flowId, defaultVersion } = req.body;
 
   try {
-    await FlowModel.findByIdAndUpdate(flowId, { defaultVersion });
+    const nowLocal = moment().utcOffset(-180);
 
-    res.status(200).json({ defaultVersion, flowId });
+    await FlowModel.findByIdAndUpdate(
+      flowId,
+      { defaultVersion },
+      { new: true, useFindAndModify: false }
+    );
+
+    res.status(200).json({ defaultVersion, flowId, lastUpdate: nowLocal });
   } catch (err) {
     res.status(422).send({ error: err.message });
   }
 });
-// ? Deleta versão de fluxo
+// ? Deletar um Fluxo (versão)
+router.delete(
+  "/flow-models/flow-model/delete/version/:originalId/:flowId",
+  async (req, res, next) => {
+    const { flowId, originalId } = req.params;
+
+    try {
+      const nowLocal = moment().utcOffset(-180);
+
+      const flow = await FlowModel.findOne({ _id: flowId });
+
+      if (!flow) {
+        throw new Error("Exception: undefined _id");
+      }
+
+      await FlowModel.findByIdAndUpdate(
+        { _id: originalId },
+        { lastUpdate: nowLocal },
+        { new: true, useFindAndModify: false }
+      );
+
+      await FlowModel.findOneAndRemove({ _id: flowId });
+
+      await Node.remove({ flowId });
+      await Edge.remove({ flowId });
+
+      res.send({
+        message: `Id: ${flowId} deletado com sucesso.`,
+        id: flowId,
+        lastUpdate: nowLocal,
+      });
+    } catch (err) {
+      next(err);
+      res.status(422).send({ error: err });
+    }
+  }
+);
+// ? Deleta o Projeto raiz e suas versões (se existirem)
+router.delete(
+  "/flow-models/flow-model/delete/project/:flowId",
+  async (req, res) => {
+    const { flowId } = req.params;
+
+    try {
+      const allVersions = await FlowModel.find({ originalId: flowId });
+
+      if (allVersions) {
+        allVersions.forEach(async (item) => {
+          await Node.remove({ flowId: item._id });
+          await Edge.remove({ flowId: item._id });
+          await FlowModel.findOneAndRemove({ _id: item._id });
+        });
+      }
+
+      await FlowModel.findOneAndRemove({ _id: flowId });
+      const nodes = await Node.remove({ flowId });
+      const edges = await Edge.remove({ flowId });
+
+      res.status(200).send({
+        message: `Id: ${flowId} deletado com sucesso.`,
+        allVersions: allVersions.length,
+        flowId: flowId,
+      });
+    } catch (err) {
+      res.status(422).send({ error: err.message });
+    }
+  }
+);
+
+//! Descontinuado
 router.put("/flow-models/flow-model/delete-version", async (req, res) => {
   const { versionNumber, originalId } = req.body;
 
