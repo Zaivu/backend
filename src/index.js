@@ -20,7 +20,6 @@ const path = require("path");
 const { find } = require("./models/Post");
 const ActivedNode = mongoose.model("ActivedNode");
 const User = mongoose.model("User");
-const morgan = require("morgan");
 
 const app = express();
 
@@ -32,7 +31,6 @@ app.use(
   "/files",
   express.static(path.resolve(__dirname, "..", "tmp", "uploads"))
 );
-app.use(morgan("tiny"));
 
 app.get("/", (req, res) => {
   res.status(200).send("ok");
