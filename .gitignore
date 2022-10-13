@@ -8,5 +8,6 @@
 .env.production.local
 /tmp
 /uploads
+package-lock.json
 
 
