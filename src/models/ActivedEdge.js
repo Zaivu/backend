@@ -1,9 +1,9 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const activedEdgeSchema = new mongoose.Schema({
   flowId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "FlowModel",
+    ref: 'FlowModel',
   },
   id: {
     type: String,
@@ -39,10 +39,10 @@ const activedEdgeSchema = new mongoose.Schema({
   labelStyle: {
     type: Object,
   },
-  enterpriseId: {
+  tenantId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: 'User',
   },
 });
 
-mongoose.model("ActivedEdge", activedEdgeSchema);
+mongoose.model('ActivedEdge', activedEdgeSchema);

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const flowModelSchema = new mongoose.Schema({
   title: {
@@ -9,27 +9,33 @@ const flowModelSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
-  enterpriseId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
-  originalId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "FlowModel",
-  },
-  position: {
-    type: Number,
-  },
-  versionNumber: {
+  type: {
     type: String,
+    default: 'main',
+    required: true,
   },
-  defaultVersion: {
-    type: String,
-    default: "default",
+  tenantId: {
+    //enterpriseID
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    ref: 'User',
+  },
+  parentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: function () {
+      return this.type === 'main' ? false : true;
+    },
+
+    ref: 'FlowModel',
+  },
+  default: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
   },
   lastUpdate: {
     type: Date,
+    required: true,
   },
 });
 
-mongoose.model("FlowModel", flowModelSchema);
+mongoose.model('FlowModel', flowModelSchema);

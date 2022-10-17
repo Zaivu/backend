@@ -1,19 +1,19 @@
-const express = require("express");
-const moment = require("moment");
-const mongoose = require("mongoose");
-const requireAuth = require("../middlewares/requireAuth");
-const ActivedFlow = mongoose.model("ActivedFlow");
-const ActivedNode = mongoose.model("ActivedNode");
+const express = require('express');
+const moment = require('moment');
+const mongoose = require('mongoose');
+const requireAuth = require('../middlewares/requireAuth');
+const ActivedFlow = mongoose.model('ActivedFlow');
+const ActivedNode = mongoose.model('ActivedNode');
 
 const router = express.Router();
 
 router.use(requireAuth);
 
 router.get(
-  "/actived-tasks/search/:enterpriseId/:title/:page/:flowTitle/:client/:status/:flowType/:employeer",
+  '/actived-tasks/search/:tenantId/:title/:page/:flowTitle/:client/:status/:flowType/:employeer',
   async (req, res) => {
     const {
-      enterpriseId,
+      tenantId,
       page,
       title,
       client,
@@ -25,60 +25,60 @@ router.get(
     try {
       const flows = await ActivedFlow.find(
         {
-          enterpriseId,
+          tenantId,
           title: {
-            $regex: flowTitle === "undefined" ? RegExp(".*") : flowTitle,
-            $options: "i",
+            $regex: flowTitle === 'undefined' ? RegExp('.*') : flowTitle,
+            $options: 'i',
           },
           client: {
-            $regex: client === "undefined" ? RegExp(".*") : client,
-            $options: "i",
+            $regex: client === 'undefined' ? RegExp('.*') : client,
+            $options: 'i',
           },
           status:
-            flowType === "undefined"
+            flowType === 'undefined'
               ? { $exists: true }
-              : flowType === "actived"
-              ? { $ne: ["finished"] }
-              : ["finished"],
+              : flowType === 'actived'
+              ? { $ne: ['finished'] }
+              : ['finished'],
         },
         { lastState: 0, comments: 0 }
       );
 
       const idArray = flows.map((item) => item._id);
 
-      if (status === "expired") {
+      if (status === 'expired') {
         const nowLocal = moment().utcOffset(-180);
 
         const nodes = await ActivedNode.find({
-          enterpriseId,
-          "data.status":
-            status === "undefined"
+          tenantId,
+          'data.status':
+            status === 'undefined'
               ? { $exists: true }
-              : status === "expired"
-              ? "doing"
-              : status === "doneExpired"
-              ? "done"
+              : status === 'expired'
+              ? 'doing'
+              : status === 'doneExpired'
+              ? 'done'
               : status,
-          "data.label": {
-            $regex: title === "undefined" ? RegExp(".*") : title,
-            $options: "i",
+          'data.label': {
+            $regex: title === 'undefined' ? RegExp('.*') : title,
+            $options: 'i',
           },
-          "data.expired":
-            status === "doneExpired"
+          'data.expired':
+            status === 'doneExpired'
               ? true
               : { $ne: true } || { $exists: false },
-          "data.accountable":
-            employeer === "undefined" ? { $exists: true } : employeer,
+          'data.accountable':
+            employeer === 'undefined' ? { $exists: true } : employeer,
           flowId: { $in: idArray },
         });
         let newNodes = [];
 
         nodes.forEach((e) => {
           if (
-            e.data.status === "doing" &&
+            e.data.status === 'doing' &&
             moment(e.data.startedAt)
-              .add(e.data.expiration.number, "hours")
-              .diff(nowLocal, "hours", true) < 0
+              .add(e.data.expiration.number, 'hours')
+              .diff(nowLocal, 'hours', true) < 0
           ) {
             newNodes.push(e);
           }
@@ -94,14 +94,14 @@ router.get(
               (it) => it._id.toString() === item.flowId.toString()
             );
 
-            if (newFlow.status[0] === "finished") {
+            if (newFlow.status[0] === 'finished') {
               newItem.data.client = newFlow.client;
               newItem.data.flowTitle = newFlow.title;
-              newItem.data.flowType = "finished";
+              newItem.data.flowType = 'finished';
             } else {
               newItem.data.client = newFlow.client;
               newItem.data.flowTitle = newFlow.title;
-              newItem.data.flowType = "actived";
+              newItem.data.flowType = 'actived';
             }
 
             tasks.push(newItem);
@@ -112,49 +112,49 @@ router.get(
       } else {
         const number_of_pages = Math.ceil(
           (await ActivedNode.count({
-            enterpriseId,
-            "data.status":
-              status === "undefined"
+            tenantId,
+            'data.status':
+              status === 'undefined'
                 ? { $exists: true }
-                : status === "expired"
-                ? "doing"
-                : status === "doneExpired"
-                ? "done"
+                : status === 'expired'
+                ? 'doing'
+                : status === 'doneExpired'
+                ? 'done'
                 : status,
-            "data.label": {
-              $regex: title === "undefined" ? RegExp(".*") : title,
-              $options: "i",
+            'data.label': {
+              $regex: title === 'undefined' ? RegExp('.*') : title,
+              $options: 'i',
             },
-            "data.expired":
-              status === "doneExpired"
+            'data.expired':
+              status === 'doneExpired'
                 ? true
                 : { $ne: true } || { $exists: false },
-            "data.accountable":
-              employeer === "undefined" ? { $exists: true } : employeer,
+            'data.accountable':
+              employeer === 'undefined' ? { $exists: true } : employeer,
             flowId: { $in: idArray },
           })) / 5
         );
 
         const nodes = await ActivedNode.find({
-          enterpriseId,
-          "data.status":
-            status === "undefined"
+          tenantId,
+          'data.status':
+            status === 'undefined'
               ? { $exists: true }
-              : status === "expired"
-              ? "doing"
-              : status === "doneExpired"
-              ? "done"
+              : status === 'expired'
+              ? 'doing'
+              : status === 'doneExpired'
+              ? 'done'
               : status,
-          "data.label": {
-            $regex: title === "undefined" ? RegExp(".*") : title,
-            $options: "i",
+          'data.label': {
+            $regex: title === 'undefined' ? RegExp('.*') : title,
+            $options: 'i',
           },
-          "data.expired":
-            status === "doneExpired"
+          'data.expired':
+            status === 'doneExpired'
               ? true
               : { $ne: true } || { $exists: false },
-          "data.accountable":
-            employeer === "undefined" ? { $exists: true } : employeer,
+          'data.accountable':
+            employeer === 'undefined' ? { $exists: true } : employeer,
           flowId: { $in: idArray },
         })
           .skip(5 * (page - 1))
@@ -166,14 +166,14 @@ router.get(
             (it) => it._id.toString() === item.flowId.toString()
           );
 
-          if (newFlow.status[0] === "finished") {
+          if (newFlow.status[0] === 'finished') {
             newItem.data.client = newFlow.client;
             newItem.data.flowTitle = newFlow.title;
-            newItem.data.flowType = "finished";
+            newItem.data.flowType = 'finished';
           } else {
             newItem.data.client = newFlow.client;
             newItem.data.flowTitle = newFlow.title;
-            newItem.data.flowType = "actived";
+            newItem.data.flowType = 'actived';
           }
 
           return newItem;
@@ -188,7 +188,7 @@ router.get(
 );
 
 router.get(
-  "/actived-tasks/stats/:employeer/:startDate/:endDate",
+  '/actived-tasks/stats/:employeer/:startDate/:endDate',
   async (req, res) => {
     const { employeer, startDate, endDate } = req.params;
 
@@ -199,18 +199,18 @@ router.get(
     const endDateFormat = moment(endDate).unix() * 1000;
 
     const tasksDone = await ActivedNode.find({
-      "data.accountable": employeer,
-      type: "task",
-      "data.status": "done",
-      "data.finishedAt": {
+      'data.accountable': employeer,
+      type: 'task',
+      'data.status': 'done',
+      'data.finishedAt': {
         $gte: startDateFormat,
         $lte: endDateFormat,
       },
     });
     const tasksDoing = await ActivedNode.find({
-      "data.accountable": employeer,
-      type: "task",
-      "data.status": "doing",
+      'data.accountable': employeer,
+      type: 'task',
+      'data.status': 'doing',
     });
 
     let doneHours = 0;
@@ -223,7 +223,7 @@ router.get(
 
       producReal += moment(el.data.finishedAt).diff(
         moment(el.data.startedAt),
-        "hours",
+        'hours',
         true
       );
       producIdeal += el.data?.expiration?.number;
@@ -237,15 +237,15 @@ router.get(
     const doingTasks = tasksDoing.filter(
       (el) =>
         moment(el.data.startedAt)
-          .add(el.data.expiration.number, "hours")
-          .diff(nowLocal, "hours", true) >= 0
+          .add(el.data.expiration.number, 'hours')
+          .diff(nowLocal, 'hours', true) >= 0
     ).length;
 
     const expiredTasks = tasksDoing.filter(
       (el) =>
         moment(el.data.startedAt)
-          .add(el.data.expiration.number, "hours")
-          .diff(nowLocal, "hours", true) < 0
+          .add(el.data.expiration.number, 'hours')
+          .diff(nowLocal, 'hours', true) < 0
     ).length;
 
     const doneTasks = tasksDone.filter((el) => !el.data.expired).length;

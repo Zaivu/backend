@@ -1,9 +1,9 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const nodeSchema = new mongoose.Schema({
   flowId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "FlowModel",
+    ref: 'FlowModel',
   },
   id: {
     type: String,
@@ -26,10 +26,10 @@ const nodeSchema = new mongoose.Schema({
   sourcePosition: {
     type: String,
   },
-  enterpriseId: {
+  tenantId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: 'User',
   },
 });
 
-mongoose.model("Node", nodeSchema);
+mongoose.model('Node', nodeSchema);

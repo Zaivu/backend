@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
+const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   },
   rank: {
     type: String,
-    default: "Funcionário",
+    default: 'Funcionário',
   },
   status: {
     type: String,
@@ -32,9 +32,9 @@ const userSchema = new mongoose.Schema({
     require: true,
     unique: true,
   },
-  enterpriseId: {
+  tenantId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: 'User',
   },
 });
 
@@ -77,4 +77,4 @@ userSchema.methods.comparePassword = function (candidatePassword) {
   });
 };
 
-mongoose.model("User", userSchema);
+mongoose.model('User', userSchema);

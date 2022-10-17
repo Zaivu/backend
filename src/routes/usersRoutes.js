@@ -1,13 +1,13 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const User = mongoose.model("User");
-const multer = require("multer");
-const Post = mongoose.model("Post");
-const requireAuth = require("../middlewares/requireAuth");
+const express = require('express');
+const mongoose = require('mongoose');
+const User = mongoose.model('User');
+const multer = require('multer');
+const Post = mongoose.model('Post');
+const requireAuth = require('../middlewares/requireAuth');
 const router = express.Router();
-const multerConfig = require("../config/multer");
-const crypto = require("crypto");
-const AWS = require("aws-sdk");
+const multerConfig = require('../config/multer');
+const crypto = require('crypto');
+const AWS = require('aws-sdk');
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 
 async function sendEmail(fromAddress, toAddress, subject, body) {
@@ -16,9 +16,9 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
     Content: {
       Simple: {
         Body: {
-          Html: { Data: body, Charset: "UTF-8" }, //ISO-8859-1
+          Html: { Data: body, Charset: 'UTF-8' }, //ISO-8859-1
         },
-        Subject: { Data: subject, Charset: "UTF-8" }, //ISO-8859-1
+        Subject: { Data: subject, Charset: 'UTF-8' }, //ISO-8859-1
       },
     },
     Destination: { ToAddresses: [toAddress] },
@@ -33,31 +33,31 @@ async function generateToken() {
   const buffer = await new Promise((resolve, reject) => {
     crypto.randomBytes(256, function (ex, buffer) {
       if (ex) {
-        reject("error generating token");
+        reject('error generating token');
       }
       resolve(buffer);
     });
   });
-  const token = crypto.createHash("sha1").update(buffer).digest("hex");
+  const token = crypto.createHash('sha1').update(buffer).digest('hex');
 
   return token;
 }
 
 router.use(requireAuth);
 
-router.get("/employees/:enterpriseId", async (req, res) => {
-  const { enterpriseId } = req.params;
+router.get('/employees/:tenantId', async (req, res) => {
+  const { tenantId } = req.params;
 
   try {
-    const users = await User.find({ enterpriseId });
+    const users = await User.find({ tenantId });
 
-    const user = await User.findById(enterpriseId);
+    const user = await User.findById(tenantId);
 
     let userCopy = JSON.parse(JSON.stringify(user));
-    delete userCopy["password"];
+    delete userCopy['password'];
 
     const usersCopy = JSON.parse(JSON.stringify(users)).map((item) => {
-      delete item["password"];
+      delete item['password'];
 
       return item;
     });
@@ -71,12 +71,12 @@ router.get("/employees/:enterpriseId", async (req, res) => {
 });
 
 router.delete(
-  "/employees/employee/delete/:username/:enterpriseId",
+  '/employees/employee/delete/:username/:tenantId',
   async (req, res) => {
-    const { username, enterpriseId } = req.params;
+    const { username, tenantId } = req.params;
 
     try {
-      const user = await User.findOne({ username, enterpriseId });
+      const user = await User.findOne({ username, tenantId });
       await User.deleteOne({ _id: user._id });
 
       res.send({ userId: user._id });
@@ -87,11 +87,11 @@ router.delete(
 );
 
 router.put(
-  "/users/profile/picture/new",
-  multer(multerConfig).single("file"),
+  '/users/profile/picture/new',
+  multer(multerConfig).single('file'),
   async (req, res) => {
-    const { originalname: name, size, key, location: url = "" } = req.file;
-    const { originalId, type, enterpriseId } = req.body;
+    const { originalname: name, size, key, location: url = '' } = req.file;
+    const { originalId, type, tenantId } = req.body;
 
     const oldPost = await Post.findOne({ originalId });
 
@@ -106,18 +106,18 @@ router.put(
       url,
       originalId,
       type,
-      enterpriseId,
+      tenantId,
     });
 
     return res.json(post);
   }
 );
 
-router.get("/users/profile/picture/:originalId/:type", async (req, res) => {
+router.get('/users/profile/picture/:originalId/:type', async (req, res) => {
   const { originalId, type } = req.params;
   var picture;
   const user =
-    type === "email"
+    type === 'email'
       ? await User.findOne({
           email: originalId,
         })
@@ -135,7 +135,7 @@ router.get("/users/profile/picture/:originalId/:type", async (req, res) => {
   }
 });
 
-router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
+router.delete('/users/profile/picture/delete/:originalId', async (req, res) => {
   const { originalId } = req.params;
   const post = await Post.findOne({ originalId });
 
@@ -148,26 +148,26 @@ router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
   });
 });
 
-router.put("/users/send-register-link", async (req, res) => {
-  const { name, email, enterpriseId, rank } = req.body;
+router.put('/users/send-register-link', async (req, res) => {
+  const { name, email, tenantId, rank } = req.body;
 
-  const enterpriseUser = await User.findById(enterpriseId);
+  const enterpriseUser = await User.findById(tenantId);
 
   if (await User.findOne({ email })) {
-    res.send({ error: "Email já cadastrado" });
+    res.send({ error: 'Email já cadastrado' });
   } else {
     const token = await generateToken();
     const token2 = await generateToken();
 
     const user = new User({
       username: name,
-      password: "inactive",
-      enterpriseId: enterpriseId,
+      password: 'inactive',
+      tenantId: tenantId,
       rank: rank,
       email: email,
       resetToken: token2,
       expireToken: Date.now() + 3600000 * 48,
-      status: "pending",
+      status: 'pending',
     });
     await user.save();
 
@@ -179,13 +179,13 @@ router.put("/users/send-register-link", async (req, res) => {
     );
 
     let newUser = JSON.parse(JSON.stringify(user));
-    delete newUser["password"];
+    delete newUser['password'];
 
     res.send({ user: newUser });
   }
 });
 
-router.put("/users/resend-email", async (req, res) => {
+router.put('/users/resend-email', async (req, res) => {
   const { id } = req.body;
 
   const token = await generateToken();
@@ -194,7 +194,7 @@ router.put("/users/resend-email", async (req, res) => {
     resetToken: token,
     expireToken: Date.now() + 3600000 * 48,
   });
-  const enterpriseUser = await User.findById(user.enterpriseId);
+  const enterpriseUser = await User.findById(user.tenantId);
 
   sendEmail(
     process.env.DEFAULT_SUPPORT_EMAIL,
@@ -203,7 +203,7 @@ router.put("/users/resend-email", async (req, res) => {
     `Olá ${user.username}, Bem vindo à ${enterpriseUser.enterpriseName}! Segue abaixo um link de cadastro que irá expirar em 48 horas: <a href="${process.env.APP_URL}/newaccount/${token}">Clique aqui</a>`
   );
 
-  res.send("Feito");
+  res.send('Feito');
 });
 
 module.exports = router;

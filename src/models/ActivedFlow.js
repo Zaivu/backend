@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const activedFlowSchema = new mongoose.Schema({
   title: {
@@ -22,11 +22,11 @@ const activedFlowSchema = new mongoose.Schema({
   },
   comments: {
     type: String,
-    default: "",
+    default: '',
   },
-  enterpriseId: {
+  tenantId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: 'User',
   },
   posts: {
     type: Array,
@@ -38,4 +38,4 @@ const activedFlowSchema = new mongoose.Schema({
   },
 });
 
-mongoose.model("ActivedFlow", activedFlowSchema);
+mongoose.model('ActivedFlow', activedFlowSchema);

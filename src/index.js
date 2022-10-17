@@ -17,9 +17,6 @@ const usersRoutes = require('./routes/usersRoutes');
 const activedTaskRoutes = require('./routes/activedTasksRoutes');
 const cors = require('cors');
 const path = require('path');
-const { find } = require('./models/Post');
-const ActivedNode = mongoose.model('ActivedNode');
-const User = mongoose.model('User');
 
 const app = express();
 
