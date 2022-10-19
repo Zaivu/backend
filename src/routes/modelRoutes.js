@@ -22,42 +22,28 @@ router.get('/flow-models/:tenantId/:page', async (req, res) => {
       })) / 4
     );
 
-    const flows = await FlowModel.find({ tenantId, versionNumber: null })
+    const flows = await FlowModel.find({ tenantId, type: 'main' })
       .skip(4 * (page - 1))
       .limit(4);
 
-    const originalFlows = flows.filter(
-      (item) => item.versionNumber === undefined
+    const newFlows = await Promise.all(
+      flows.map(async (item) => {
+        if (item.default) {
+          const flow = await FlowModel.findById(item.default);
+          return { ...item, versionTitle: flow.title };
+        }
+        return item;
+      })
     );
 
-    const allFlowsVersions = await FlowModel.find({
-      tenantId,
-      versionNumber: { $exists: true },
-    });
+    const modelFlows = newFlows.map(
+      (item) => (item = { ...item._doc, versionTitle: item.versionTitle })
+    );
 
-    const formatedFlows = originalFlows.map((item) => {
-      const flow = {
-        title: item.title,
-        _id: item._id,
-        createdAt: item.createdAt,
-        tenantId,
-        ...(item.lastUpdate && { lastUpdate: item.lastUpdate }),
-        defaultVersion:
-          item.defaultVersion !== 'default' ? item.defaultVersion : 'Original',
-        defaultVersionName:
-          item.defaultVersion !== 'default'
-            ? allFlowsVersions.find(
-                (it) =>
-                  JSON.stringify(item.defaultVersion) === JSON.stringify(it._id)
-              )?.versionNumber
-            : 'default',
-      };
-
-      return flow;
-    });
-
-    res.send({ flows: formatedFlows, pages: number_of_pages });
+    res.send({ flows: modelFlows, pages: number_of_pages });
   } catch (err) {
+    console.log(err);
+
     res.status(422).send({ error: err.message });
   }
 });
@@ -71,12 +57,13 @@ router.get('/flow-models/flow-single/:tenantId/:flowId', async (req, res) => {
     const nodes = await Node.find({ flowId });
     const edges = await Edge.find({ flowId });
 
-    const versionFlows = await FlowModel.find({
-      originalId: flowId,
+    const versions = await FlowModel.find({
+      parentId: flowId,
+      tenantId,
     });
 
-    const formatedVersionFlows = await Promise.all(
-      versionFlows?.map(async (it) => {
+    const versionModels = await Promise.all(
+      versions.map(async (it) => {
         const newNodes = await Node.find({ flowId: it._id });
         const newEdges = await Edge.find({ flowId: it._id });
 
@@ -85,10 +72,10 @@ router.get('/flow-models/flow-single/:tenantId/:flowId', async (req, res) => {
           _id: it._id,
           createdAt: it.createdAt,
           tenantId,
+          type: it.type,
           elements: [...newNodes, ...newEdges],
-          position: it.position,
-          originalId: it.originalId,
-          versionNumber: it.versionNumber,
+          parentId: it.parentId,
+          lastUpdate: it.lastUpdate,
         };
 
         return versionFlow;
@@ -96,14 +83,18 @@ router.get('/flow-models/flow-single/:tenantId/:flowId', async (req, res) => {
     );
 
     const newFlow = {
-      title: flow.title,
-      _id: flow._id,
-      createdAt: flow.createdAt,
-      tenantId,
-      elements: [...nodes, ...edges],
-      versions: formatedVersionFlows,
-      defaultVersion: flow.defaultVersion ? flow.defaultVersion : 'default',
-      ...(flow.lastUpdate && { lastUpdate: flow.lastUpdate }),
+      main: {
+        title: flow.title,
+        _id: flow._id,
+        createdAt: flow.createdAt,
+        tenantId,
+        type: flow.type,
+        elements: [...nodes, ...edges],
+        default: flow.default,
+        lastUpdate: flow.lastUpdate,
+      },
+
+      versions: versionModels,
     };
 
     res.send({ flow: newFlow });
@@ -243,22 +234,30 @@ router.put('/flow-models/flow-model/rename', async (req, res, next) => {
 
 // ? Novo Fluxo
 router.post('/flow-models/flow-model/new-flow', async (req, res) => {
-  const { title, elements, tenantId, type = 'main', parentId } = req.body;
-
   try {
+    const elements = req.body.elements;
+    const { type, title, tenantId } = req.body.flow;
+
+    if (!elements && !flow) {
+      throw new Error('undefined state to add new flow');
+    }
+
     const nowLocal = DateTime.now();
     let baseModel = {
       title,
-      elements,
       tenantId,
       createdAt: nowLocal,
       lastUpdate: nowLocal,
     };
     let flowModel;
+
     if (type === 'main') {
-      flowModel = new FlowModel({ ...baseModel });
+      flowModel = new FlowModel({ ...baseModel, default: null });
     } else if (type === 'version') {
+      const { parentId } = req.body.flow;
       flowModel = new FlowModel({ ...baseModel, type, parentId });
+    } else {
+      throw new Error('Unknown flow type');
     }
 
     const flow = await flowModel.save();
@@ -295,81 +294,19 @@ router.post('/flow-models/flow-model/new-flow', async (req, res) => {
       },
     });
   } catch (err) {
-    console.log(err.message);
+    console.log(err);
     res.status(422).send({ error: err.message });
   }
 });
-// ? Adiciona nova versão
-router.put('/flow-models/flow-model/new-version', async (req, res) => {
-  const { title, elements, versionNumber, tenantId, _id } = req.body;
-
-  try {
-    const nowLocal = moment().utcOffset(-180);
-    const allflows = await FlowModel.find({ originalId: _id });
-
-    await FlowModel.findOneAndUpdate(
-      { _id: _id },
-      { lastUpdate: nowLocal },
-      { new: true, useFindAndModify: false }
-    );
-
-    const flowModel = new FlowModel({
-      title: title,
-      createdAt: nowLocal,
-      tenantId,
-      originalId: _id,
-      position: allflows?.length + 1,
-      versionNumber: versionNumber,
-    });
-
-    const flow = await flowModel.save();
-
-    await Promise.all(
-      elements.map(async (item) => {
-        if (item.source) {
-          const edge = new Edge({
-            ...item,
-            flowId: flowModel._id,
-            tenantId,
-          });
-          await edge.save();
-        } else {
-          const node = new Node({
-            ...item,
-            flowId: flowModel._id,
-            tenantId,
-          });
-          await node.save();
-        }
-      })
-    );
-
-    const edges = await Edge.find({ flowId: flow._id });
-    const nodes = await Node.find({ flowId: flow._id });
-
-    res.status(200).json({
-      flow: {
-        title: flow.title,
-        _id: flow._id,
-        createdAt: flow.createdAt,
-        tenantId: flow.tenantId,
-        elements: [...nodes, ...edges],
-        originalId: flow.originalId,
-        position: flow.position,
-        versionNumber: versionNumber,
-      },
-      lastUpdate: nowLocal,
-    });
-  } catch (err) {
-    res.status(422).send({ error: err.message });
-  }
-});
-
 // ? Edição de Fluxo
 router.put('/flow-models/flow-model/edit', async (req, res) => {
   const { title, elements, _id } = req.body;
   try {
     const nowLocal = DateTime.now();
+
+    if (!title | !elements | _id) {
+      throw new Error(' undefined state to edit Flow');
+    }
 
     const flow = await FlowModel.findOneAndUpdate(
       { _id },
@@ -401,9 +338,10 @@ router.put('/flow-models/flow-model/edit', async (req, res) => {
         _id: flow._id,
         createdAt: flow.createdAt,
         tenantId: flow.tenantId,
-        lastUpdate: flow.lastUpdate,
+        type: flow.type,
+        parentId: flow.parentId,
         elements: [...nodes, ...edges],
-        versions: flow.versions ? flow.versions : [],
+        lastUpdate: flow.lastUpdate,
       },
     });
   } catch (err) {
@@ -413,18 +351,18 @@ router.put('/flow-models/flow-model/edit', async (req, res) => {
 
 // ? Seta como padrão
 router.put('/flow-models/flow-model/new-default-version', async (req, res) => {
-  const { flowId, defaultVersion } = req.body;
+  const { flowId, versionId } = req.body;
 
   try {
     const nowLocal = DateTime.now();
 
     await FlowModel.findByIdAndUpdate(
       flowId,
-      { defaultVersion },
+      { default: versionId },
       { new: true, useFindAndModify: false }
     );
 
-    res.status(200).json({ defaultVersion, flowId, lastUpdate: nowLocal });
+    res.status(200).json({ versionId, flowId, lastUpdate: nowLocal });
   } catch (err) {
     res.status(422).send({ error: err.message });
   }
@@ -484,8 +422,6 @@ router.delete(
       }
 
       await FlowModel.findOneAndRemove({ _id: flowId });
-      const nodes = await Node.remove({ flowId });
-      const edges = await Edge.remove({ flowId });
 
       res.status(200).send({
         message: `Id: ${flowId} deletado com sucesso.`,
@@ -544,7 +480,7 @@ router.put('/flow-models/flow-model/timer/edit', async (req, res) => {
     const flow = await FlowModel.findOne({ _id: newTimer.flowId });
 
     if (version === 'default') {
-      res.send({ newTimer, version, flowId: newTask.flowId });
+      res.send({ newTimer, version, flowId: newTimer.flowId });
     } else {
       res.send({ newTimer, version, flowId: flow.originalId });
     }

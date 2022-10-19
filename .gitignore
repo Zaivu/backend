@@ -1,6 +1,7 @@
 # dependencies
 /files
 /node_modules
+.gitignore
 .env
 .env.local
 .env.development.local
@@ -8,6 +9,6 @@
 .env.production.local
 /tmp
 /uploads
+package.json
 package-lock.json
-
-
+.eslintrc.json

@@ -30,7 +30,6 @@ const flowModelSchema = new mongoose.Schema({
   },
   default: {
     type: mongoose.Schema.Types.ObjectId,
-    default: null,
   },
   lastUpdate: {
     type: Date,
