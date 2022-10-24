@@ -137,23 +137,19 @@ router.post('/auth/sign-in', async (req, res) => {
 
 router.post('/auth/new-token', async (req, res) => {
   const { refreshToken, userId } = req.body;
-  jwt.verify(
-    refreshToken,
-    secret.config.jwtRefreshSecret,
-    async (err, payload) => {
-      if (err) {
-        return res.status(401).send({ error: 'Invalid request' });
-      }
-
-      const token = jwt.sign({ userId }, secret.config.jwtSecret, {
-        expiresIn: secret.config.jwtLife,
-      });
-      const response = {
-        token: token,
-      };
-      res.status(200).json(response);
+  jwt.verify(refreshToken, secret.config.jwtRefreshSecret, async (err) => {
+    if (err) {
+      return res.status(401).send({ error: 'Invalid request' });
     }
-  );
+
+    const token = jwt.sign({ userId }, secret.config.jwtSecret, {
+      expiresIn: secret.config.jwtLife,
+    });
+    const response = {
+      token: token,
+    };
+    res.status(200).json(response);
+  });
 });
 
 router.get('/auth/validate-token/:token', async (req, res) => {
