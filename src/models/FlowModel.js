@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const flowModelSchema = new mongoose.Schema({
   title: {
@@ -37,4 +38,5 @@ const flowModelSchema = new mongoose.Schema({
   },
 });
 
+flowModelSchema.plugin(mongoosePaginate);
 mongoose.model('FlowModel', flowModelSchema);

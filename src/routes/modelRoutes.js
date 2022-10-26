@@ -14,16 +14,19 @@ router.get('/flow-models/:tenantId/:page', async (req, res) => {
   const { tenantId, page } = req.params;
 
   try {
-    const number_of_pages = Math.ceil(
-      (await FlowModel.count({
-        tenantId,
-        versionNumber: null,
-      })) / 4
+    const paginateOptions = {
+      page,
+      limit: 4,
+      sort: { createdAt: -1 }, // ultimas instancias
+    };
+
+    const Pagination = await FlowModel.paginate(
+      { type: 'main', tenantId },
+      paginateOptions
     );
 
-    const flows = await FlowModel.find({ tenantId, type: 'main' })
-      .skip(4 * (page - 1))
-      .limit(4);
+    const flows = Pagination.docs;
+    const totalPages = Pagination.totalPages;
 
     const newFlows = await Promise.all(
       flows.map(async (item) => {
@@ -39,10 +42,8 @@ router.get('/flow-models/:tenantId/:page', async (req, res) => {
       (item) => (item = { ...item._doc, versionTitle: item.versionTitle })
     );
 
-    res.send({ flows: modelFlows, pages: number_of_pages });
+    res.send({ flows: modelFlows, pages: totalPages });
   } catch (err) {
-    console.log(err);
-
     res.status(422).send({ error: err.message });
   }
 });
