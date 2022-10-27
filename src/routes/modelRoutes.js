@@ -12,6 +12,7 @@ router.use(requireAuth);
 // ? fetchFlows (pagination)
 router.get('/flow-models/:tenantId/:page', async (req, res) => {
   const { tenantId, page } = req.params;
+  const { type = 'main', title = '' } = req.query;
 
   try {
     const paginateOptions = {
@@ -21,7 +22,7 @@ router.get('/flow-models/:tenantId/:page', async (req, res) => {
     };
 
     const Pagination = await FlowModel.paginate(
-      { type: 'main', tenantId },
+      { type, tenantId, title: { $regex: title, $options: 'i' } },
       paginateOptions
     );
 
@@ -44,6 +45,7 @@ router.get('/flow-models/:tenantId/:page', async (req, res) => {
 
     res.send({ flows: modelFlows, pages: totalPages });
   } catch (err) {
+    console.log(err);
     res.status(422).send({ error: err.message });
   }
 });
