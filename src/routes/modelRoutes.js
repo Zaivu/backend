@@ -5,8 +5,8 @@ const Edge = mongoose.model('Edge');
 const Node = mongoose.model('Node');
 const requireAuth = require('../middlewares/requireAuth');
 const { DateTime } = require('luxon');
+const exceptions = require('../exceptions');
 const router = express.Router();
-const exceptions = require('../Exceptions');
 
 router.use(requireAuth);
 
@@ -202,11 +202,11 @@ router.post('/new', async (req, res) => {
     const elements = req.body.elements;
     const { type, title, tenantId } = req.body.flow;
 
+    const nowLocal = DateTime.now();
+
     if (!elements && !flow) {
       throw new Error('undefined state: /new-flow');
     }
-
-    const nowLocal = DateTime.now();
     let baseModel = {
       title,
       tenantId,
@@ -263,7 +263,168 @@ router.post('/new', async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
+// ? Copiar Fluxo
+router.post('/copy', async (req, res) => {
+  try {
+    const { flowId, title } = req.body;
 
+    //Puxar a data do fluxo a ser copiado
+    const nowLocal = DateTime.now();
+    const flow = await FlowModel.findById(flowId);
+
+    //Fluxo não encontrado
+    if (!flow) {
+      throw exceptions.entityNotFound();
+    }
+
+    const nodes = await Node.find({ flowId });
+    const edges = await Edge.find({ flowId });
+
+    //Modelo Base
+    const baseModel = {
+      title: title,
+      tenantId: flow.tenantId,
+      type: flow.type,
+      createdAt: nowLocal,
+      lastUpdate: nowLocal,
+      default: null,
+    };
+
+    //Novo Default
+    let baseDefault = flow.default;
+    let baseTitle = null;
+
+    //Fluxo Principal
+    const model = new FlowModel({ ...baseModel });
+    const modelFlow = await model.save();
+
+    const elements = [...nodes, ...edges];
+
+    //Elementos do Fluxo Principal
+    await Promise.all(
+      elements.map(async (item) => {
+        if (item.source) {
+          const edge = new Edge({
+            flowId: modelFlow._id,
+            tenantId: modelFlow.tenantId,
+            id: item.id,
+            type: item.type,
+            position: item.position,
+            data: item.data,
+            source: item.source,
+            target: item.target,
+            sourceHandle: item.sourceHandle,
+            targetHandle: item.targetHandle,
+          });
+          await edge.save();
+        } else {
+          const node = new Node({
+            flowId: modelFlow._id,
+            tenantId: modelFlow.tenantId,
+            id: item.id,
+            type: item.type,
+            position: item.position,
+            data: item.data,
+            targetPosition: item.targetPosition,
+            sourcePosition: item.sourcePosition,
+          });
+          await node.save();
+        }
+      })
+    );
+    //Puxar todas as versões originais
+    const allVersions = await FlowModel.find({
+      parentId: flow._id,
+      tenantId: flow.tenantId,
+    });
+
+    if (allVersions.length > 0) {
+      //Percorrer cada uma das versões e copiar todos os Elementos
+
+      for (const [, version] of allVersions.entries()) {
+        const baseVersion = {
+          parentId: modelFlow._id,
+          title: version.title,
+          tenantId: version.tenantId,
+          type: version.type,
+          createdAt: nowLocal,
+          lastUpdate: nowLocal,
+        };
+        baseTitle = flow._id === version.parentId ? version.title : null;
+
+        //Salvando Versão
+        const vModel = new FlowModel({ ...baseVersion });
+
+        const versionFlow = await vModel.save();
+
+        const vNodes = await Node.find({ flowId: version._id });
+        const vEdges = await Edge.find({ flowId: version._id });
+
+        const vElements = [...vNodes, ...vEdges];
+
+        //Salvando Elementos da Versão[i]
+        await Promise.all(
+          vElements.map(async (item) => {
+            if (item.source) {
+              const edge = new Edge({
+                flowId: versionFlow._id,
+                tenantId: versionFlow.tenantId,
+                id: item.id,
+                type: item.type,
+                position: item.position,
+                data: item.data,
+                source: item.source,
+                target: item.target,
+                sourceHandle: item.sourceHandle,
+                targetHandle: item.targetHandle,
+              });
+              await edge.save();
+            } else {
+              const node = new Node({
+                flowId: versionFlow._id,
+                tenantId: versionFlow.tenantId,
+                id: item.id,
+                type: item.type,
+                position: item.position,
+                data: item.data,
+                targetPosition: item.targetPosition,
+                sourcePosition: item.sourcePosition,
+              });
+              await node.save();
+            }
+          })
+        );
+      }
+    }
+
+    if (baseDefault) {
+      //Para achar a versão correta é necessario
+      //titulo da versão original + parentId do fluxo copia
+      const currentVersion = await FlowModel.findOne({
+        baseTitle,
+        parentId: modelFlow._id,
+      });
+
+      await FlowModel.findOneAndUpdate(
+        { _id: modelFlow._id },
+        { default: currentVersion._id },
+        { useFindAndModify: false }
+      );
+    }
+
+    res.status(200).json({
+      flow: {
+        title: modelFlow.title,
+        _id: modelFlow._id,
+        createdAt: modelFlow.createdAt,
+        tenantId: modelFlow.tenantId,
+        type: modelFlow.type,
+      },
+    });
+  } catch (err) {
+    res.send({ error: err.message });
+  }
+});
 // ? Renomeia um fluxo qualquer
 router.put('/rename', async (req, res, next) => {
   const { title, flowId } = req.body;
