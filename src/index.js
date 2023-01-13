@@ -34,7 +34,7 @@ app.get('/', (req, res) => {
 });
 
 app.use(authRoutes);
-app.use(modelRoutes);
+app.use('/modelflows', modelRoutes);
 app.use(activedRoutes);
 app.use(usersRoutes);
 app.use(activedTaskRoutes);

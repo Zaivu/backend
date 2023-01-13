@@ -6,11 +6,12 @@ const Node = mongoose.model('Node');
 const requireAuth = require('../middlewares/requireAuth');
 const { DateTime } = require('luxon');
 const router = express.Router();
+const exceptions = require('../Exceptions');
 
 router.use(requireAuth);
 
 // ? fetchFlows (pagination)
-router.get('/flow-models/:tenantId/:page', async (req, res) => {
+router.get('/:tenantId/:page', async (req, res) => {
   const { tenantId, page } = req.params;
   const { type = 'main', title = '' } = req.query;
 
@@ -51,11 +52,16 @@ router.get('/flow-models/:tenantId/:page', async (req, res) => {
 });
 
 // ? FetchSingleFlow
-router.get('/flow-models/flow-single/:tenantId/:flowId', async (req, res) => {
+router.get('/flow/:tenantId/:flowId', async (req, res) => {
   const { tenantId, flowId } = req.params;
 
   try {
     const flow = await FlowModel.findById(flowId);
+
+    if (!flow) {
+      throw exceptions.entityNotFound();
+    }
+
     const nodes = await Node.find({ flowId });
     const edges = await Edge.find({ flowId });
 
@@ -101,11 +107,11 @@ router.get('/flow-models/flow-single/:tenantId/:flowId', async (req, res) => {
 
     res.send({ flow: newFlow });
   } catch (err) {
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 // ? SearchFlow
-router.get('/model-flows/search/:tenantId/:page/:title', async (req, res) => {
+router.get('/search/:tenantId/:page/:title', async (req, res) => {
   const { tenantId, page, title } = req.params;
 
   try {
@@ -191,7 +197,7 @@ router.get('/model-flows/search/:tenantId/:page/:title', async (req, res) => {
 });
 
 // ? Novo Fluxo
-router.post('/flow-models/flow-model/new-flow', async (req, res) => {
+router.post('/new', async (req, res) => {
   try {
     const elements = req.body.elements;
     const { type, title, tenantId } = req.body.flow;
@@ -259,7 +265,7 @@ router.post('/flow-models/flow-model/new-flow', async (req, res) => {
 });
 
 // ? Renomeia um fluxo qualquer
-router.put('/flow-models/flow-model/rename', async (req, res, next) => {
+router.put('/rename', async (req, res, next) => {
   const { title, flowId } = req.body;
 
   try {
@@ -290,7 +296,7 @@ router.put('/flow-models/flow-model/rename', async (req, res, next) => {
 });
 
 // ? Edição de Fluxo
-router.put('/flow-models/flow-model/edit', async (req, res) => {
+router.put('/edit', async (req, res) => {
   const { title, elements, flowId } = req.body;
   try {
     const nowLocal = DateTime.now();
@@ -304,6 +310,10 @@ router.put('/flow-models/flow-model/edit', async (req, res) => {
       { title: title, lastUpdate: nowLocal },
       { new: true, useFindAndModify: false }
     );
+
+    if (!flow) {
+      throw exceptions.entityNotFound();
+    }
 
     await Node.remove({ flowId });
     await Edge.remove({ flowId });
@@ -341,7 +351,7 @@ router.put('/flow-models/flow-model/edit', async (req, res) => {
 });
 
 // ? Seta como padrão
-router.put('/flow-models/flow-model/new-default-version', async (req, res) => {
+router.put('/default', async (req, res) => {
   const { flowId, versionId } = req.body;
 
   try {
