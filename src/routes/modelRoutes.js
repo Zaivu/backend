@@ -18,7 +18,7 @@ router.get('/:tenantId/:page', async (req, res) => {
   try {
     const paginateOptions = {
       page,
-      // limit: 4,
+      limit: 4,
       sort: { createdAt: -1 }, // ultimas instancias
     };
 
@@ -399,7 +399,7 @@ router.post('/copy', async (req, res) => {
 
     if (baseDefault) {
       //Para achar a versão correta é necessario
-      //titulo da versão original + parentId do fluxo copia
+      //titulo da versão original + parentId do fluxo cópia
       const currentVersion = await FlowModel.findOne({
         baseTitle,
         parentId: modelFlow._id,
