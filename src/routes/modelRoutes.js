@@ -16,6 +16,10 @@ router.get('/:tenantId/:page', async (req, res) => {
   const { type = 'main', title = '' } = req.query;
 
   try {
+    if (!title | !page | !tenantId | !type) {
+      throw exceptions.unprocessableEntity();
+    }
+
     const paginateOptions = {
       page,
       limit: 4,
@@ -46,8 +50,7 @@ router.get('/:tenantId/:page', async (req, res) => {
 
     res.send({ flows: modelFlows, pages: totalPages });
   } catch (err) {
-    console.log(err);
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 
@@ -56,6 +59,10 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
   const { tenantId, flowId } = req.params;
 
   try {
+    if (!tenantId | !flowId) {
+      throw exceptions.unprocessableEntity();
+    }
+
     const flow = await FlowModel.findById(flowId);
 
     if (!flow) {
@@ -115,6 +122,10 @@ router.get('/search/:tenantId/:page/:title', async (req, res) => {
   const { tenantId, page, title } = req.params;
 
   try {
+    if (!title | !page | !tenantId) {
+      throw exceptions.unprocessableEntity();
+    }
+
     const number_of_pages = Math.ceil(
       (await FlowModel.count({
         tenantId,
@@ -192,7 +203,7 @@ router.get('/search/:tenantId/:page/:title', async (req, res) => {
 
     res.send({ flows: formatedFlows, pages: number_of_pages });
   } catch (err) {
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 
@@ -201,6 +212,10 @@ router.post('/new', async (req, res) => {
   try {
     const elements = req.body.elements;
     const { type, title, tenantId } = req.body.flow;
+
+    if (!title | !type | !tenantId) {
+      throw exceptions.unprocessableEntity();
+    }
 
     const nowLocal = DateTime.now();
 
@@ -259,14 +274,17 @@ router.post('/new', async (req, res) => {
       },
     });
   } catch (err) {
-    console.log(err);
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 // ? Copiar Fluxo
 router.post('/copy', async (req, res) => {
   try {
     const { flowId, title } = req.body;
+
+    if (!title | !flowId) {
+      throw exceptions.unprocessableEntity();
+    }
 
     //Puxar a data do fluxo a ser copiado
     const nowLocal = DateTime.now();
@@ -422,20 +440,33 @@ router.post('/copy', async (req, res) => {
       },
     });
   } catch (err) {
-    res.send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 // ? Renomeia um fluxo qualquer
-router.put('/rename', async (req, res, next) => {
-  const { title, flowId } = req.body;
+router.put('/rename', async (req, res) => {
+  const { title, flowId, parentId } = req.body;
 
   try {
-    const nowLocal = DateTime.now();
-
-    if (!title | !flowId) {
-      throw new Error('undefined state: /rename');
+    if (!title | !flowId | !parentId) {
+      throw exceptions.unprocessableEntity();
     }
 
+    //Para puxar todas as versoes preciso do parentID
+    //Para puxar todos os fluxos preciso do flowId
+
+    const isAlreadyExist = await FlowModel.find({
+      $or: [
+        { _id: flowId, title },
+        { _id: parentId, title },
+        { parentId, title },
+      ],
+    });
+
+    if (isAlreadyExist.length > 0) {
+      throw exceptions.alreadyExists();
+    }
+    const nowLocal = DateTime.now();
     const flow = await FlowModel.findOneAndUpdate(
       { _id: flowId },
       { title, lastUpdate: nowLocal },
@@ -451,8 +482,7 @@ router.put('/rename', async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(err);
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ message: err.message, code: err.code });
   }
 });
 
@@ -463,7 +493,7 @@ router.put('/edit', async (req, res) => {
     const nowLocal = DateTime.now();
 
     if (!title | !elements | !flowId) {
-      throw new Error('undefined state: /edit');
+      throw exceptions.unprocessableEntity();
     }
 
     const flow = await FlowModel.findOneAndUpdate(
@@ -507,7 +537,7 @@ router.put('/edit', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 
@@ -536,7 +566,7 @@ router.put('/default', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 
@@ -547,9 +577,14 @@ router.delete('/project/:flowId', async (req, res) => {
 
   try {
     if (!flowId) {
-      throw new Error('undefined flowId: /delete');
+      throw exceptions.unprocessableEntity();
     }
+
     const current = await FlowModel.findOne({ _id: flowId });
+
+    if (!current) {
+      throw exceptions.entityNotFound();
+    }
 
     const allVersions = await FlowModel.find({ parentId: flowId });
     if (allVersions) {
@@ -572,7 +607,7 @@ router.delete('/project/:flowId', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 // ? Deleta 1 fluxo
@@ -603,7 +638,7 @@ router.delete('/flow/:flowId', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(422).send({ error: err.message });
+    res.status(err.code).send({ error: err.message });
   }
 });
 
