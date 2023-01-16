@@ -13,21 +13,30 @@ router.use(requireAuth);
 // ? fetchFlows (pagination)
 router.get('/:tenantId/:page', async (req, res) => {
   const { tenantId, page } = req.params;
-  const { type = 'main', title = '' } = req.query;
+  const { title = '', alpha = false, creation = false } = req.query;
+
+  const isAlpha = alpha === 'true';
+  const isCreation = creation === 'true';
+
+  const SortedBy = isCreation
+    ? { createdAt: 1 }
+    : isAlpha
+    ? { title: 1 }
+    : { createdAt: -1 };
 
   try {
-    if (!title | !page | !tenantId | !type) {
+    if (!page || !tenantId) {
       throw exceptions.unprocessableEntity();
     }
 
     const paginateOptions = {
       page,
       limit: 4,
-      sort: { createdAt: -1 }, // ultimas instancias
+      sort: SortedBy, // ultimas instancias
     };
 
     const Pagination = await FlowModel.paginate(
-      { type, tenantId, title: { $regex: title, $options: 'i' } },
+      { type: 'main', tenantId, title: { $regex: title, $options: 'i' } },
       paginateOptions
     );
 
@@ -213,15 +222,12 @@ router.post('/new', async (req, res) => {
     const elements = req.body.elements;
     const { type, title, tenantId } = req.body.flow;
 
-    if (!title | !type | !tenantId) {
+    if (!title | !type | !tenantId | !elements) {
       throw exceptions.unprocessableEntity();
     }
 
     const nowLocal = DateTime.now();
 
-    if (!elements && !flow) {
-      throw new Error('undefined state: /new-flow');
-    }
     let baseModel = {
       title,
       tenantId,
@@ -236,7 +242,9 @@ router.post('/new', async (req, res) => {
       const { parentId } = req.body.flow;
       flowModel = new FlowModel({ ...baseModel, type, parentId });
     } else {
-      throw new Error('Unknown flow type');
+      throw exceptions.unprocessableEntity(
+        'type argument must be: main or version'
+      );
     }
 
     const flow = await flowModel.save();
@@ -617,12 +625,12 @@ router.delete('/flow/:flowId', async (req, res) => {
 
   try {
     if (!flowId) {
-      throw new Error('undefined flowId: /delete');
+      throw exceptions.unprocessableEntity('flowId');
     }
     const current = await FlowModel.findOne({ _id: flowId });
 
     if (!current) {
-      throw new Error('cannot find the flow entity');
+      throw exceptions.entityNotFound();
     }
 
     await Node.remove({ flowId });
