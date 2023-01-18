@@ -609,9 +609,10 @@ router.delete('/project/:flowId', async (req, res) => {
 
     res.status(200).send({
       flow: {
+        title: current.title,
+        type: current.type,
         message,
         flowId,
-        type: current.type,
       },
     });
   } catch (err) {
@@ -640,9 +641,11 @@ router.delete('/flow/:flowId', async (req, res) => {
 
     res.status(200).send({
       flow: {
+        title: current.title,
+        type: current.type,
         message,
         flowId,
-        type: current.type,
+
       },
     });
   } catch (err) {
