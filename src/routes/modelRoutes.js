@@ -15,8 +15,8 @@ router.get('/:tenantId/:page', async (req, res) => {
   const { tenantId, page } = req.params;
   const { title = '', alpha = false, creation = false } = req.query;
 
-  const isAlpha = alpha === 'true';
-  const isCreation = creation === 'true';
+  const isAlpha = alpha === 'true'; //Ordem do alfabeto
+  const isCreation = creation === 'true'; //Ordem de Criação
 
   const SortedBy = isCreation
     ? { createdAt: 1 }
@@ -59,7 +59,8 @@ router.get('/:tenantId/:page', async (req, res) => {
 
     res.send({ flows: modelFlows, pages: totalPages });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 
@@ -123,7 +124,8 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
 
     res.send({ flow: newFlow });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 // ? SearchFlow
@@ -212,7 +214,8 @@ router.get('/search/:tenantId/:page/:title', async (req, res) => {
 
     res.send({ flows: formatedFlows, pages: number_of_pages });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 
@@ -299,7 +302,8 @@ router.post('/new', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 // ? Copiar Fluxo
@@ -465,7 +469,8 @@ router.post('/copy', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 // ? Renomeia um fluxo qualquer
@@ -507,7 +512,8 @@ router.put('/rename', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.code).send({ message: err.message, code: err.code });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 
@@ -562,7 +568,8 @@ router.put('/edit', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 
@@ -591,7 +598,8 @@ router.put('/default', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 
@@ -633,7 +641,8 @@ router.delete('/project/:flowId', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 // ? Deleta 1 fluxo
@@ -665,7 +674,8 @@ router.delete('/flow/:flowId', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.code).send({ error: err.message });
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
 });
 
