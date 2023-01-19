@@ -225,8 +225,12 @@ router.post('/new', async (req, res) => {
     if (!title | !type | !tenantId | !elements) {
       throw exceptions.unprocessableEntity();
     }
-
     const nowLocal = DateTime.now();
+
+    // const alreadyExists = await FlowModel.find({ title, tenantId });
+    // if (alreadyExists.length > 0) {
+    //   throw exceptions.alreadyExists();
+    // }
 
     let baseModel = {
       title,
@@ -248,20 +252,33 @@ router.post('/new', async (req, res) => {
     }
 
     const flow = await flowModel.save();
+    // se houver _id em um elemento crasha
     await Promise.all(
       elements.map(async (item) => {
         if (item.source) {
           const edge = new Edge({
-            ...item,
-            flowId: flowModel._id,
             tenantId,
+            flowId: flowModel._id,
+            id: item.id,
+            type: item.type,
+            position: item.position,
+            data: item.data,
+            source: item.source,
+            target: item.target,
+            sourceHandle: item.sourceHandle,
+            targetHandle: item.targetHandle,
           });
           await edge.save();
         } else {
           const node = new Node({
-            ...item,
             flowId: flowModel._id,
             tenantId,
+            id: item.id,
+            type: item.type,
+            position: item.position,
+            data: item.data,
+            targetPosition: item.targetPosition,
+            sourcePosition: item.sourcePosition,
           });
           await node.save();
         }
@@ -556,8 +573,8 @@ router.put('/default', async (req, res) => {
   try {
     const nowLocal = DateTime.now();
 
-    if (!flowId) {
-      throw new Error('undefined state: /new-default-version');
+    if (!flowId | !versionId) {
+      throw exceptions.unprocessableEntity();
     }
 
     const flowModel = await FlowModel.findByIdAndUpdate(
@@ -645,7 +662,6 @@ router.delete('/flow/:flowId', async (req, res) => {
         type: current.type,
         message,
         flowId,
-
       },
     });
   } catch (err) {
