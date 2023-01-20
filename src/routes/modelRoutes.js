@@ -43,10 +43,12 @@ router.get('/:tenantId/:page', async (req, res) => {
     const flows = Pagination.docs;
     const totalPages = Pagination.totalPages;
 
+    //63598d15c7bd2601ca279156
     const newFlows = await Promise.all(
       flows.map(async (item) => {
         if (item.default) {
           const flow = await FlowModel.findById(item.default);
+
           return { ...item, versionTitle: flow.title };
         }
         return item;
@@ -60,6 +62,8 @@ router.get('/:tenantId/:page', async (req, res) => {
     res.send({ flows: modelFlows, pages: totalPages });
   } catch (err) {
     const code = err.code ? err.code : '412';
+    console.log({ error: err.message, code });
+
     res.status(code).send({ error: err.message, code });
   }
 });
@@ -219,21 +223,22 @@ router.get('/search/:tenantId/:page/:title', async (req, res) => {
   }
 });
 
-// ? Novo Fluxo
+// ? Novo Projeto
 router.post('/new', async (req, res) => {
   try {
     const elements = req.body.elements;
     const { type, title, tenantId } = req.body.flow;
 
-    if (!title | !type | !tenantId | !elements) {
+    if (!title | !tenantId | !elements) {
       throw exceptions.unprocessableEntity();
     }
-    const nowLocal = DateTime.now();
+    if (type !== 'main') {
+      throw exceptions.unprocessableEntity(
+        'type argument must be: main or version'
+      );
+    }
 
-    // const alreadyExists = await FlowModel.find({ title, tenantId });
-    // if (alreadyExists.length > 0) {
-    //   throw exceptions.alreadyExists();
-    // }
+    const nowLocal = DateTime.now();
 
     let baseModel = {
       title,
@@ -241,21 +246,11 @@ router.post('/new', async (req, res) => {
       createdAt: nowLocal,
       lastUpdate: nowLocal,
     };
-    let flowModel;
 
-    if (type === 'main') {
-      flowModel = new FlowModel({ ...baseModel, default: null });
-    } else if (type === 'version') {
-      const { parentId } = req.body.flow;
-      flowModel = new FlowModel({ ...baseModel, type, parentId });
-    } else {
-      throw exceptions.unprocessableEntity(
-        'type argument must be: main or version'
-      );
-    }
+    const flowModel = new FlowModel({ ...baseModel, default: null });
 
     const flow = await flowModel.save();
-    // se houver _id em um elemento crasha
+
     await Promise.all(
       elements.map(async (item) => {
         if (item.source) {
@@ -306,7 +301,98 @@ router.post('/new', async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-// ? Copiar Fluxo
+
+// ? Novo Fluxo (Versionamento)
+router.post('/new/model', async (req, res) => {
+  try {
+    const elements = req.body.elements;
+    const { type, title, tenantId, parentId } = req.body.flow;
+
+    if (!title | !tenantId | !elements | parentId) {
+      throw exceptions.unprocessableEntity();
+    }
+
+    if (type !== 'version') {
+      throw exceptions.unprocessableEntity('type argument must be: version');
+    }
+
+    const nowLocal = DateTime.now();
+
+    let baseModel = {
+      title,
+      tenantId,
+      createdAt: nowLocal,
+      lastUpdate: nowLocal,
+    };
+    let flowModel;
+
+    const alreadyExists = await FlowModel.find({
+      $or: [
+        { _id: parentId, title },
+        { parentId, title },
+      ],
+    });
+
+    if (alreadyExists.length > 0) {
+      throw exceptions.alreadyExists();
+    }
+
+    flowModel = new FlowModel({ ...baseModel, type, parentId });
+
+    const flow = await flowModel.save();
+    // se houver _id em um elemento crasha
+    await Promise.all(
+      elements.map(async (item) => {
+        if (item.source) {
+          const edge = new Edge({
+            tenantId,
+            flowId: flowModel._id,
+            id: item.id,
+            type: item.type,
+            position: item.position,
+            data: item.data,
+            source: item.source,
+            target: item.target,
+            sourceHandle: item.sourceHandle,
+            targetHandle: item.targetHandle,
+          });
+          await edge.save();
+        } else {
+          const node = new Node({
+            tenantId,
+            flowId: flowModel._id,
+            id: item.id,
+            type: item.type,
+            position: item.position,
+            data: item.data,
+            targetPosition: item.targetPosition,
+            sourcePosition: item.sourcePosition,
+          });
+          await node.save();
+        }
+      })
+    );
+
+    const edges = await Edge.find({ flowId: flow._id });
+    const nodes = await Node.find({ flowId: flow._id });
+
+    res.status(200).json({
+      flow: {
+        title: flow.title,
+        _id: flow._id,
+        createdAt: flow.createdAt,
+        tenantId: flow.tenantId,
+        type: flow.type,
+        elements: [...nodes, ...edges],
+      },
+    });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+// ? Copiar Projeto
 router.post('/copy', async (req, res) => {
   try {
     const { flowId, title } = req.body;
@@ -482,8 +568,8 @@ router.put('/rename', async (req, res) => {
       throw exceptions.unprocessableEntity();
     }
 
-    //Para puxar todas as versoes preciso do parentID
-    //Para puxar todos os fluxos preciso do flowId
+    //Para puxar todas as versoes precisa do parentID
+    //Para puxar todos os fluxos precisa do flowId
 
     const isAlreadyExist = await FlowModel.find({
       $or: [
@@ -525,6 +611,17 @@ router.put('/edit', async (req, res) => {
 
     if (!title | !elements | !flowId) {
       throw exceptions.unprocessableEntity();
+    }
+
+    const alreadyExists = await FlowModel.find({
+      $or: [
+        { _id: flowId, title },
+        { parentId: flowId, title },
+      ],
+    });
+
+    if (alreadyExists.length > 0) {
+      throw exceptions.alreadyExists();
     }
 
     const flow = await FlowModel.findOneAndUpdate(
@@ -580,13 +677,13 @@ router.put('/default', async (req, res) => {
   try {
     const nowLocal = DateTime.now();
 
-    if (!flowId | !versionId) {
+    if (!flowId) {
       throw exceptions.unprocessableEntity();
     }
 
     const flowModel = await FlowModel.findByIdAndUpdate(
       flowId,
-      { default: versionId ? versionId : null },
+      { default: versionId },
       { new: true, useFindAndModify: false }
     );
 
