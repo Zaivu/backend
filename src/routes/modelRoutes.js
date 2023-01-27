@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const ObjectID = require('mongodb').ObjectID;
 const FlowModel = mongoose.model('FlowModel');
 const Edge = mongoose.model('Edge');
 const Node = mongoose.model('Node');
@@ -11,8 +12,8 @@ const router = express.Router();
 router.use(requireAuth);
 
 // ? fetchFlows (pagination)
-router.get('/:tenantId/:page', async (req, res) => {
-  const { tenantId, page } = req.params;
+router.get('/pagination/:tenantId/:page', async (req, res) => {
+  const { tenantId, page = '1' } = req.params;
   const { title = '', alpha = false, creation = false } = req.query;
 
   const isAlpha = alpha === 'true'; //Ordem do alfabeto
@@ -25,8 +26,8 @@ router.get('/:tenantId/:page', async (req, res) => {
     : { createdAt: -1 };
 
   try {
-    if (!page || !tenantId) {
-      throw exceptions.unprocessableEntity();
+    if (!ObjectID.isValid(tenantId)) {
+      throw exceptions.unprocessableEntity('tenantId must be a valid ObjectId');
     }
 
     const paginateOptions = {
@@ -43,7 +44,6 @@ router.get('/:tenantId/:page', async (req, res) => {
     const flows = Pagination.docs;
     const totalPages = Pagination.totalPages;
 
-    //63598d15c7bd2601ca279156
     const newFlows = await Promise.all(
       flows.map(async (item) => {
         if (item.default) {
@@ -62,8 +62,52 @@ router.get('/:tenantId/:page', async (req, res) => {
     res.send({ flows: modelFlows, pages: totalPages });
   } catch (err) {
     const code = err.code ? err.code : '412';
-    console.log({ error: err.message, code });
 
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+// ? ListAll
+router.get('/list/:tenantId', async (req, res) => {
+  const { tenantId } = req.params;
+
+  try {
+    if (!ObjectID.isValid(tenantId)) {
+      throw exceptions.unprocessableEntity('tenantId must be a valid ObjectId');
+    }
+
+    const projects = await FlowModel.find({
+      tenantId,
+    });
+
+    const projectType = projects.filter((item) => item.type === 'main');
+    const versionType = projects.filter((item) => item.type === 'version');
+
+    const allFlowsProject = projectType.map((item) => {
+      const allVersions = versionType.filter((version) => {
+        const id = item._id.toString();
+        const parentId = version.parentId.toString();
+        if (parentId === id) {
+          return version;
+        }
+      });
+
+      return {
+        main: {
+          _id: item._id,
+          title: item.title,
+          createdAt: item.createdAt,
+        },
+        versions: allVersions.map(
+          (v) => (v = { _id: v._id, title: v.title, createdAt: v.createdAt })
+        ),
+        default: item.default,
+      };
+    });
+
+    res.status(200).send({ projects: allFlowsProject });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
 });
@@ -73,8 +117,10 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
   const { tenantId, flowId } = req.params;
 
   try {
-    if (!tenantId | !flowId) {
-      throw exceptions.unprocessableEntity();
+    if (!ObjectID.isValid(tenantId) | !ObjectID.isValid(flowId)) {
+      throw exceptions.unprocessableEntity(
+        'flowId | tenantId must be a valid ObjectID'
+      );
     }
 
     const flow = await FlowModel.findById(flowId);
@@ -132,110 +178,23 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-// ? SearchFlow
-router.get('/search/:tenantId/:page/:title', async (req, res) => {
-  const { tenantId, page, title } = req.params;
-
-  try {
-    if (!title | !page | !tenantId) {
-      throw exceptions.unprocessableEntity();
-    }
-
-    const number_of_pages = Math.ceil(
-      (await FlowModel.count({
-        tenantId,
-        title: {
-          $regex: title === 'undefined' ? RegExp('.*') : title,
-          $options: 'i',
-        },
-      })) / 5
-    );
-
-    const flows = await FlowModel.find({
-      tenantId,
-      title: {
-        $regex: title === 'undefined' ? RegExp('.*') : title,
-        $options: 'i',
-      },
-    })
-      .skip(5 * (page - 1))
-      .limit(5);
-
-    const idArray = flows.map((item) => item._id);
-    const nodes = await Node.find({ flowId: { $in: idArray } });
-    const edges = await Edge.find({ flowId: { $in: idArray } });
-
-    const originalFlows = flows.filter(
-      (item) => item.versionNumber === undefined
-    );
-
-    const formatedFlows = originalFlows.map((item) => {
-      const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === item._id.toString()
-      );
-      const newEdges = edges.filter(
-        (el) => el.flowId.toString() === item._id.toString()
-      );
-
-      const versionFlows = flows.filter(
-        (el) => el?.originalId?.toString() === item._id.toString()
-      );
-
-      const formatedVersionFlows = versionFlows.map((it) => {
-        const newNodes = nodes.filter(
-          (el) => el.flowId.toString() === it._id.toString()
-        );
-        const newEdges = edges.filter(
-          (el) => el.flowId.toString() === it._id.toString()
-        );
-
-        const versionFlow = {
-          title: it.title,
-          _id: it._id,
-          createdAt: it.createdAt,
-          tenantId,
-          elements: [...newNodes, ...newEdges],
-          position: it.position,
-          originalId: it.originalId,
-          versionNumber: it.versionNumber,
-        };
-
-        return versionFlow;
-      });
-
-      const flow = {
-        title: item.title,
-        _id: item._id,
-        createdAt: item.createdAt,
-        tenantId,
-        elements: [...newNodes, ...newEdges],
-        versions: formatedVersionFlows,
-        defaultVersion: item.defaultVersion ? item.defaultVersion : 'default',
-      };
-
-      return flow;
-    });
-
-    res.send({ flows: formatedFlows, pages: number_of_pages });
-  } catch (err) {
-    const code = err.code ? err.code : '412';
-    res.status(code).send({ error: err.message, code });
-  }
-});
 
 // ? Novo Projeto
 router.post('/new', async (req, res) => {
   try {
     const elements = req.body.elements;
     const { type, title, tenantId } = req.body.flow;
+    const isArray = Array.isArray;
 
-    if (!title | !tenantId | !elements) {
-      throw exceptions.unprocessableEntity();
+    if (
+      !(typeof title === 'string') ||
+      !ObjectID.isValid(tenantId) ||
+      !isArray(elements)
+    ) {
+      throw exceptions.unprocessableEntity('Invalid argumnt type');
     }
     if (type !== 'main') {
-      throw exceptions.unprocessableEntity(
-        'type argument must be: main or version'
-      );
+      throw exceptions.unprocessableEntity('type argument must be: main');
     }
 
     const nowLocal = DateTime.now();
@@ -307,9 +266,15 @@ router.post('/new/model', async (req, res) => {
   try {
     const elements = req.body.elements;
     const { type, title, tenantId, parentId } = req.body.flow;
+    const isArray = Array.isArray;
 
-    if (!title | !tenantId | !elements | parentId) {
-      throw exceptions.unprocessableEntity();
+    if (
+      !(typeof title === 'string') ||
+      !isArray(elements) ||
+      !ObjectID.isValid(parentId) ||
+      !ObjectID.isValid(tenantId)
+    ) {
+      throw exceptions.unprocessableEntity('Invalid argument type');
     }
 
     if (type !== 'version') {
@@ -397,8 +362,8 @@ router.post('/copy', async (req, res) => {
   try {
     const { flowId, title } = req.body;
 
-    if (!title | !flowId) {
-      throw exceptions.unprocessableEntity();
+    if (!(typeof title === 'string') || !ObjectID.isValid(flowId)) {
+      throw exceptions.unprocessableEntity('Invalid argument type');
     }
 
     //Puxar a data do fluxo a ser copiado
@@ -564,8 +529,12 @@ router.put('/rename', async (req, res) => {
   const { title, flowId, parentId } = req.body;
 
   try {
-    if (!title | !flowId | !parentId) {
-      throw exceptions.unprocessableEntity();
+    if (
+      !(typeof title === 'string') ||
+      !ObjectID.isValid(flowId) ||
+      !ObjectID.isValid(parentId)
+    ) {
+      throw exceptions.unprocessableEntity('Invalid argument type');
     }
 
     //Para puxar todas as versoes precisa do parentID
@@ -606,11 +575,16 @@ router.put('/rename', async (req, res) => {
 // ? Edição de Fluxo
 router.put('/edit', async (req, res) => {
   const { title, elements, flowId } = req.body;
+  const isArray = Array.isArray;
   try {
     const nowLocal = DateTime.now();
 
-    if (!title | !elements | !flowId) {
-      throw exceptions.unprocessableEntity();
+    if (
+      !(title instanceof String) |
+      !isArray(elements) |
+      !ObjectID.isValid(flowId)
+    ) {
+      throw exceptions.unprocessableEntity('Invalid argument type');
     }
 
     const alreadyExists = await FlowModel.find({
@@ -677,8 +651,8 @@ router.put('/default', async (req, res) => {
   try {
     const nowLocal = DateTime.now();
 
-    if (!flowId) {
-      throw exceptions.unprocessableEntity();
+    if (!ObjectID.isValid(flowId)) {
+      throw exceptions.unprocessableEntity('flowId must be a valid ObjectID');
     }
 
     const flowModel = await FlowModel.findByIdAndUpdate(
@@ -706,8 +680,8 @@ router.delete('/project/:flowId', async (req, res) => {
   let message;
 
   try {
-    if (!flowId) {
-      throw exceptions.unprocessableEntity();
+    if (!ObjectID.isValid(flowId)) {
+      throw exceptions.unprocessableEntity('flowId must be a valid objectID');
     }
 
     const current = await FlowModel.findOne({ _id: flowId });
@@ -748,8 +722,8 @@ router.delete('/flow/:flowId', async (req, res) => {
   let message;
 
   try {
-    if (!flowId) {
-      throw exceptions.unprocessableEntity('flowId');
+    if (!ObjectID.isValid(flowId)) {
+      throw exceptions.unprocessableEntity('flowId must be a valid object ID');
     }
     const current = await FlowModel.findOne({ _id: flowId });
 

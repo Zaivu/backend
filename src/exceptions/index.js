@@ -7,7 +7,7 @@ module.exports = {
   },
   unprocessableEntity: (msg = null) => {
     const message = msg ? ' - ' + msg : '';
-    const error = new Error('Unprocessable Entity ' + message);
+    const error = new Error('Unprocessable Entity' + message);
     error.code = '412';
     return error;
   },
