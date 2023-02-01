@@ -11,7 +11,7 @@ require('./models/Post');
 const express = require('express');
 const mongoose = require('mongoose');
 const modelRoutes = require('./routes/modelRoutes');
-const activedRoutes = require('./routes/activedRoutes');
+const activedFlowRoutes = require('./routes/activedFlowRoutes');
 const authRoutes = require('./routes/authRoutes');
 const usersRoutes = require('./routes/usersRoutes');
 const activedTaskRoutes = require('./routes/activedTasksRoutes');
@@ -35,7 +35,9 @@ app.get('/', (req, res) => {
 
 app.use(authRoutes);
 app.use('/modelflows', modelRoutes);
-app.use(activedRoutes);
+app.use('/activedflows', activedFlowRoutes);
+
+//app.use(activedRoutes);
 app.use(usersRoutes);
 app.use(activedTaskRoutes);
 

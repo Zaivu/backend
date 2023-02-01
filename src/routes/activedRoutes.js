@@ -301,7 +301,7 @@ router.get(
 );
 
 router.post('/actived-flows/actived-flow/new', async (req, res) => {
-  const { flow, title, client, tenantId, version } = req.body;
+  const { flow, title, client, tenantId } = req.body;
 
   const nowLocal = moment().utcOffset(-180);
 
@@ -455,7 +455,7 @@ router.delete(
     const { flowId } = req.params;
 
     try {
-      const flow = await ActivedFlow.findOne({ _id: flowId });
+      // const flow = await ActivedFlow.findOne({ _id: flowId });
 
       await ActivedFlow.findOneAndRemove({ _id: flowId });
 
@@ -583,7 +583,7 @@ router.put('/actived-flows/actived-flow/send-task', async (req, res) => {
       );
 
       if (newStatus[0] !== 'finished') {
-        filter = nodes.filter(
+        let filter = nodes.filter(
           (item) =>
             item.data.status === 'doing' &&
             (item.type === 'task' ||
@@ -640,7 +640,7 @@ router.put('/actived-flows/actived-flow/send-task', async (req, res) => {
       );
 
       if (newStatus[0] !== 'finished') {
-        filter = nodes.filter(
+        let filter = nodes.filter(
           (item) =>
             item.data.status === 'doing' &&
             (item.type === 'task' ||
@@ -689,7 +689,7 @@ router.put('/actived-flows/actived-flow/send-task', async (req, res) => {
       );
 
       if (newStatus[0] !== 'finished') {
-        filter = nodes.filter(
+        let filter = nodes.filter(
           (item) =>
             item.data.status === 'doing' &&
             (item.type === 'task' ||

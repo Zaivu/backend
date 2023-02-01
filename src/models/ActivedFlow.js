@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+const mongoosePaginate = require('mongoose-paginate-v2');
 const activedFlowSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -15,6 +15,10 @@ const activedFlowSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     required: true,
+  },
+  description: {
+    type: String,
+    default: '',
   },
   finishedAt: {
     type: Date,
@@ -32,10 +36,15 @@ const activedFlowSchema = new mongoose.Schema({
     type: Array,
     default: [],
   },
+  lastUpdate: {
+    type: Date,
+    required: true,
+  },
   lastState: {
     type: Array,
     default: [],
   },
 });
 
+activedFlowSchema.plugin(mongoosePaginate);
 mongoose.model('ActivedFlow', activedFlowSchema);
