@@ -7,11 +7,11 @@ const { promisify } = require('util');
 const s3 = new aws.S3();
 
 const PostSchema = new mongoose.Schema({
+  originalId: String,
   name: String,
   size: Number,
   key: String,
   url: String,
-  originalId: String,
   type: String,
   tenantId: String,
   createdAt: {
@@ -26,20 +26,19 @@ PostSchema.pre('save', function () {
   }
 });
 
-PostSchema.pre('remove', function () {
+PostSchema.pre('remove', async function () {
   if (process.env.STORAGE_TYPE === 's3') {
-    return s3
-      .deleteObject({
-        Bucket: process.env.BUCKET_NAME,
-        Key: this.key,
-      })
-      .promise()
-      .then((response) => {
-        console.log('deu certo', response.status);
-      })
-      .catch((response) => {
-        console.log('erro', response.status);
-      });
+    try {
+      const response = await s3
+        .deleteObject({
+          Bucket: process.env.BUCKET_NAME,
+          Key: this.key,
+        })
+        .promise();
+      console.log('deu certo', response.status);
+    } catch (response_1) {
+      console.log('erro', response_1.status);
+    }
   } else {
     return promisify(fs.unlink)(
       path.resolve(__dirname, '..', '..', 'tmp', 'uploads', this.key)

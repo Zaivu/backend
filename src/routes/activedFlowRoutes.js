@@ -7,8 +7,9 @@ const router = express.Router();
 const { DateTime } = require('luxon');
 
 const ActivedFlow = mongoose.model('ActivedFlow');
-// const ActivedEdge = mongoose.model('ActivedEdge');
-// const ActivedNode = mongoose.model('ActivedNode');
+const ActivedEdge = mongoose.model('ActivedEdge');
+const ActivedNode = mongoose.model('ActivedNode');
+const Post = mongoose.model('Post');
 
 router.use(requireAuth);
 
@@ -42,6 +43,62 @@ router.get('/pagination/:tenantId/:page', async (req, res) => {
     const totalPages = Pagination.totalPages;
 
     res.send({ activedflows: flows, pages: totalPages });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//Single Flow
+router.get('/flow/:tenantId/:flowId', async (req, res) => {
+  const { tenantId, flowId } = req.params;
+
+  try {
+    if (!ObjectID.isValid(tenantId) || !ObjectID.isValid(flowId)) {
+      throw exceptions.unprocessableEntity(
+        'tenantId | flowId must be a valid ObjectId'
+      );
+    }
+
+    const flow = await ActivedFlow.findOne({ _id: flowId });
+
+    const nodes = await ActivedNode.find({ flowId: flow._id });
+    const edges = await ActivedEdge.find({ flowId: flow._id });
+
+    let newNodes = nodes.filter(
+      (el) => el.flowId.toString() === flow._id.toString()
+    );
+    const newNodesWithPosts = await Promise.all(
+      newNodes.map(async (item) => {
+        if (item.type === 'task') {
+          let newItem = JSON.parse(JSON.stringify(item));
+          newItem.data.attachLength = await Post.count({
+            originalId: item._id,
+          });
+          return newItem;
+        } else {
+          return item;
+        }
+      })
+    );
+    const newEdges = edges.filter(
+      (el) => el.flowId.toString() === flow._id.toString()
+    );
+
+    const newFlow = {
+      tenantId,
+      _id: flow._id,
+      title: flow.title,
+      status: flow.status,
+      createdAt: flow.createdAt,
+      finishedAt: flow.finishedAt,
+      comments: flow.comments,
+      posts: flow.posts,
+      client: flow.client,
+      lastState: flow.lastState,
+      elements: [...newNodesWithPosts, ...newEdges],
+    };
+    res.send({ flow: newFlow });
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });

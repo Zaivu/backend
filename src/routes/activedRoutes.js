@@ -126,8 +126,8 @@ function walkEndLoop(nodes, edges, item, callback) {
   }
 }
 
-router.get('/actived-flows/:tenantId/:page/:type', async (req, res) => {
-  const { tenantId, page, type } = req.params;
+router.get('/actived-flows/:tenantId/:page', async (req, res) => {
+  const { tenantId, page, type = 'doing' } = req.params;
 
   try {
     const number_of_pages = Math.ceil(
