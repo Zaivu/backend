@@ -580,8 +580,8 @@ router.put('/edit', async (req, res) => {
     const nowLocal = DateTime.now();
 
     if (
-      !(title instanceof String) |
-      !isArray(elements) |
+      !(typeof title === 'string') ||
+      !isArray(elements) ||
       !ObjectID.isValid(flowId)
     ) {
       throw exceptions.unprocessableEntity('Invalid argument type');
@@ -589,8 +589,7 @@ router.put('/edit', async (req, res) => {
 
     const alreadyExists = await FlowModel.find({
       $or: [
-        { _id: flowId, title },
-        { parentId: flowId, title },
+        { parentId: flowId, title }, //Versões
       ],
     });
 
