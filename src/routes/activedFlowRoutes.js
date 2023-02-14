@@ -1,4 +1,5 @@
 const express = require('express');
+const moment = require('moment');
 const mongoose = require('mongoose');
 const ObjectID = require('mongodb').ObjectID;
 const exceptions = require('../exceptions');
@@ -18,6 +19,8 @@ const Post = mongoose.model('Post');
 
 router.use(requireAuth);
 
+let newStatus = [];
+
 function walkParallelLoop(nodes, edges, item, callback) {
   ////SE FOR ARESTA
   if (item.source) {
@@ -35,6 +38,94 @@ function walkParallelLoop(nodes, edges, item, callback) {
     return edges.map((element) => {
       if (element.source === item.id) {
         walkParallelLoop(nodes, edges, element, callback);
+        callback(element);
+      }
+    });
+  }
+}
+function walkEndLoop(nodes, edges, item, callback) {
+  ////SE FOR ARESTA
+  if (item.source) {
+    return nodes.map((el) => {
+      if (el.id === item.target) {
+        if (el.type === 'parallelEnd') {
+          let validation = true;
+
+          edges.map((edge) => {
+            if (edge.target === el.id) {
+              nodes.map((node) => {
+                if (node.id === edge.source) {
+                  if (node.data.status !== 'done') {
+                    validation = false;
+                    newStatus.push(node.id);
+                  }
+                }
+              });
+            }
+          });
+
+          if (validation) {
+            newStatus = [];
+            el.data.status = 'done';
+            walkEndLoop(nodes, edges, el, callback);
+            callback(el);
+          }
+        } else if (el.type === 'conditionalEnd') {
+          el.data.status = 'done';
+          walkEndLoop(nodes, edges, el, callback);
+          callback(el);
+        } else {
+          const nowLocal = moment().utcOffset(-180);
+          ///TAREFA OU CONDICIONAL
+          if (
+            el.type === 'task' ||
+            el.type === 'conditional' ||
+            el.type === 'timerEvent'
+          ) {
+            if (el.type === 'timerEvent') {
+              ///ativa o timer
+            }
+
+            el.data.status = 'doing';
+            el.data.startedAt = nowLocal;
+            newStatus.push(el.id);
+          }
+          ////EVENTO DE FIM
+          else if (el.type === 'eventEnd') {
+            el.data.status = 'done';
+            newStatus = ['finished'];
+          }
+          ///PARALELO
+          else if (el.type === 'parallel') {
+            el.data.status = 'done';
+            walkParallelLoop(nodes, edges, el, (node) => {
+              if (node.source) {
+                node.data.status = 'done';
+              }
+              if (node.type === 'task') {
+                node.data.startedAt = nowLocal;
+                node.data.status = 'doing';
+                newStatus.push(node.id);
+              }
+              if (node.type === 'conditional') {
+                node.data.startedAt = nowLocal;
+                node.data.status = 'doing';
+                newStatus.push(node.id);
+              }
+              if (node.type === 'parallel') {
+                node.data.status = 'done';
+              }
+            });
+          }
+        }
+      }
+    });
+  }
+  ////SE FOR NÓ
+  else {
+    return edges.map((element) => {
+      if (element.source === item.id) {
+        walkEndLoop(nodes, edges, element, callback);
         callback(element);
       }
     });
@@ -307,4 +398,316 @@ router.post('/new', async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
+
+//Confirm Task
+router.put('/task/confirm', async (req, res) => {
+  const { flowId, taskId } = req.body;
+
+  const nowLocal = moment().utcOffset(-180);
+
+  try {
+    //////////////ATUAL
+
+    const taskExpired = await ActivedNode.findOne({ _id: taskId });
+
+    const subtasks = taskExpired.data.subtasks.map((item) => {
+      return { ...item, checked: true };
+    });
+
+    const nodes = await ActivedNode.find({ flowId });
+    const edges = await ActivedEdge.find({ flowId });
+
+    await ActivedFlow.findByIdAndUpdate(flowId, {
+      lastState: [...nodes, ...edges],
+    });
+
+    const taskUpdated = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      {
+        $set: {
+          'data.status': 'done',
+          'data.finishedAt': nowLocal,
+          'data.expired':
+            moment(taskExpired.data.startedAt)
+              .add(taskExpired.data.expiration.number, 'hours')
+              .diff(nowLocal, 'hours', true) < 0
+              ? true
+              : false,
+          'data.subtasks': subtasks,
+        },
+      }
+    );
+
+    let arrowUpdated;
+
+    const nextEdge = await ActivedEdge.findOne({
+      flowId,
+      source: taskUpdated.id,
+    });
+    const edgeId = nextEdge._id;
+
+    if (taskUpdated.type === 'task') {
+      arrowUpdated = await ActivedEdge.findOneAndUpdate(
+        { source: taskUpdated.id, flowId },
+        { $set: { 'data.status': 'done' } }
+      );
+    } else {
+      arrowUpdated = await ActivedEdge.findOneAndUpdate(
+        { _id: edgeId },
+        { $set: { 'data.status': 'done' } }
+      );
+    }
+
+    ////////PROXIMO
+    const nextTask = await ActivedNode.findOne({
+      id: arrowUpdated.target,
+      flowId,
+    });
+
+    //////////Tarefa ou condicional
+    if (
+      nextTask.type === 'task' ||
+      nextTask.type === 'conditional' ||
+      nextTask.type === 'timerEvent'
+    ) {
+      const nodes = await ActivedNode.find({ flowId });
+
+      await ActivedNode.findOneAndUpdate(
+        { _id: nextTask._id },
+        { $set: { 'data.status': 'doing', 'data.startedAt': nowLocal } }
+      );
+
+      if (newStatus[0] !== 'finished') {
+        let filter = nodes.filter(
+          (item) =>
+            item.data.status === 'doing' &&
+            (item.type === 'task' ||
+              item.type === 'conditional' ||
+              item.type === 'timerEvent')
+        );
+        newStatus = filter.map((item) => item.id);
+        if (
+          nextTask.type === 'task' ||
+          nextTask.type === 'conditional' ||
+          nextTask.type === 'timerEvent'
+        )
+          newStatus.push(nextTask.id);
+      }
+    } else if (nextTask.type === 'parallel') {
+      const edges = await ActivedEdge.find({ flowId });
+      const nodes = await ActivedNode.find({ flowId });
+
+      nodes.map((item) =>
+        item.id === nextTask.id ? (item.data.status = 'done') : null
+      );
+
+      walkParallelLoop(nodes, edges, nextTask, (node) => {
+        if (node.source) {
+          node.data.status = 'done';
+        }
+        if (node.type === 'task') {
+          node.data.startedAt = nowLocal;
+          node.data.status = 'doing';
+        }
+        if (node.type === 'timerEvent') {
+          node.data.startedAt = nowLocal;
+          node.data.status = 'doing';
+        }
+        if (node.type === 'conditional') {
+          node.data.startedAt = nowLocal;
+          node.data.status = 'doing';
+        }
+        if (node.type === 'parallel') {
+          node.data.status = 'done';
+        }
+      });
+
+      await Promise.all(
+        nodes.map(async (item) => {
+          await ActivedNode.findOneAndUpdate({ _id: item._id }, item);
+        })
+      );
+
+      await Promise.all(
+        edges.map(async (item) => {
+          await ActivedEdge.findOneAndUpdate({ _id: item._id }, item);
+        })
+      );
+
+      if (newStatus[0] !== 'finished') {
+        let filter = nodes.filter(
+          (item) =>
+            item.data.status === 'doing' &&
+            (item.type === 'task' ||
+              item.type === 'conditional' ||
+              item.type === 'timerEvent')
+        );
+        newStatus = filter.map((item) => item.id);
+        if (
+          nextTask.type === 'task' ||
+          nextTask.type === 'conditional' ||
+          nextTask.type === 'timerEvent'
+        )
+          newStatus.push(nextTask.id);
+      }
+    } else if (
+      nextTask.type === 'parallelEnd' ||
+      nextTask.type === 'conditionalEnd'
+    ) {
+      const edges = await ActivedEdge.find({ flowId });
+      const nodes = await ActivedNode.find({ flowId });
+
+      walkEndLoop(
+        nodes,
+        edges,
+        edges.find((e) => e.target === nextTask.id),
+        (node) => {
+          if (node.type === 'conditionalEnd' || node.type === 'parallelEnd') {
+            node.data.status = 'done';
+          }
+          if (node.source) {
+            node.data.status = 'done';
+          }
+        }
+      );
+
+      await Promise.all(
+        nodes.map(async (item) => {
+          await ActivedNode.findOneAndUpdate({ _id: item._id }, item);
+        })
+      );
+
+      await Promise.all(
+        edges.map(async (item) => {
+          await ActivedEdge.findOneAndUpdate({ _id: item._id }, item);
+        })
+      );
+
+      if (newStatus[0] !== 'finished') {
+        let filter = nodes.filter(
+          (item) =>
+            item.data.status === 'doing' &&
+            (item.type === 'task' ||
+              item.type === 'conditional' ||
+              item.type === 'timerEvent')
+        );
+        newStatus = filter.map((item) => item.id);
+        if (
+          nextTask.type === 'task' ||
+          nextTask.type === 'conditional' ||
+          nextTask.type === 'timerEvent'
+        )
+          newStatus.push(nextTask.id);
+      }
+    } else if (nextTask.type === 'eventEnd') {
+      newStatus = ['finished'];
+
+      await ActivedNode.findOneAndUpdate(
+        { _id: nextTask._id },
+        { $set: { 'data.status': 'done' } }
+      );
+    }
+
+    if (newStatus[0] === 'finished') {
+      await ActivedFlow.findOneAndUpdate(
+        { _id: flowId },
+        { status: newStatus, finishedAt: nowLocal }
+      );
+    } else {
+      await ActivedFlow.findOneAndUpdate(
+        { _id: flowId },
+        { status: newStatus }
+      );
+    }
+
+    const activedFlow = await ActivedFlow.findById(flowId);
+    const newNodes = await ActivedNode.find({ flowId: flowId });
+    const newEdges = await ActivedEdge.find({ flowId: flowId });
+
+    newStatus = [];
+
+    const flow = {
+      _id: activedFlow._id,
+      title: activedFlow.title,
+      status: activedFlow.status,
+      createdAt: activedFlow.createdAt,
+      finishedAt: activedFlow.finishedAt,
+      comments: activedFlow.comments,
+      posts: activedFlow.posts,
+      tenantId: activedFlow.tenantId,
+      client: activedFlow.client,
+      lastState: activedFlow.lastState,
+      elements: [...newNodes, ...newEdges],
+    };
+
+    res.status(200).json({
+      flow,
+    });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+
+//undo lastState
+router.put('/undo', async (req, res) => {
+  const { flowId } = req.body;
+
+  try {
+    const flow = await ActivedFlow.findById(flowId);
+
+    await Promise.all(
+      flow.lastState.map(async (item) => {
+        if (item.source) {
+          await ActivedEdge.findByIdAndUpdate(item._id, { ...item });
+        } else {
+          await ActivedNode.findByIdAndUpdate(item._id, { ...item });
+        }
+      })
+    );
+
+    const newFlow = await ActivedFlow.findByIdAndUpdate(
+      flowId,
+      { lastState: [] },
+      { new: true }
+    );
+    const nodes = await ActivedNode.find({ flowId });
+    const edges = await ActivedEdge.find({ flowId });
+
+    res.send({
+      flow: {
+        _id: newFlow._id,
+        title: newFlow.title,
+        status: newFlow.status,
+        createdAt: newFlow.createdAt,
+        finishedAt: newFlow.finishedAt,
+        comments: newFlow.comments,
+        posts: newFlow.posts,
+        tenantId: newFlow.tenantId,
+        client: newFlow.client,
+        lastState: newFlow.lastState,
+        elements: [...nodes, ...edges],
+      },
+    });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+
+//update Task
+router.put('/task/update', async (req, res) => {
+  const { flowId, taskId, subtasks, accountable } = req.body;
+
+  try {
+    const newTask = await ActivedNode.findOneAndUpdate(
+      { flowId, id: taskId },
+      { $set: { 'data.subtasks': subtasks, 'data.accountable': accountable } },
+      { new: true }
+    );
+
+    res.send({ task: newTask });
+  } catch (err) {
+    res.status(422).send({ error: err.message });
+  }
+});
+
 module.exports = router;

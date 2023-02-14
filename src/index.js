@@ -35,12 +35,12 @@ app.get('/', (req, res) => {
 });
 
 app.use(authRoutes);
+app.use(usersRoutes);
 app.use('/modelflows', modelRoutes);
 app.use('/activedflows', activedFlowRoutes);
+app.use('/activedtasks', activedTaskRoutes);
 
 // app.use(activedRoutes);
-app.use(usersRoutes);
-app.use(activedTaskRoutes);
 
 const mongoUri = process.env.MONGO_URL;
 mongoose.connect(mongoUri, {
