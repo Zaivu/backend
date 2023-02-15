@@ -399,9 +399,13 @@ router.post('/new', async (req, res) => {
   }
 });
 
-//Confirm Task
-router.put('/task/confirm', async (req, res) => {
-  const { flowId, taskId } = req.body;
+//Confirm task | conditional option
+router.put('/node/confirm', async (req, res) => {
+  const { flowId, taskId, edgeId } = req.body;
+
+  //EdgeId
+
+  console.log(req.body);
 
   const nowLocal = moment().utcOffset(-180);
 
@@ -410,9 +414,9 @@ router.put('/task/confirm', async (req, res) => {
 
     const taskExpired = await ActivedNode.findOne({ _id: taskId });
 
-    const subtasks = taskExpired.data.subtasks.map((item) => {
-      return { ...item, checked: true };
-    });
+    // const subtasks = taskExpired.data.subtasks.map((item) => {
+    //   return { ...item, checked: true };
+    // });
 
     const nodes = await ActivedNode.find({ flowId });
     const edges = await ActivedEdge.find({ flowId });
@@ -421,30 +425,43 @@ router.put('/task/confirm', async (req, res) => {
       lastState: [...nodes, ...edges],
     });
 
-    const taskUpdated = await ActivedNode.findOneAndUpdate(
-      { _id: taskId },
-      {
-        $set: {
-          'data.status': 'done',
-          'data.finishedAt': nowLocal,
-          'data.expired':
-            moment(taskExpired.data.startedAt)
-              .add(taskExpired.data.expiration.number, 'hours')
-              .diff(nowLocal, 'hours', true) < 0
-              ? true
-              : false,
-          'data.subtasks': subtasks,
-        },
-      }
-    );
+    let taskUpdated;
+
+    if (taskExpired.type === 'task') {
+      taskUpdated = await ActivedNode.findOneAndUpdate(
+        { _id: taskId },
+        {
+          $set: {
+            'data.status': 'done',
+            'data.finishedAt': nowLocal,
+            'data.expired':
+              moment(taskExpired.data.startedAt)
+                .add(taskExpired.data.expiration.number, 'hours')
+                .diff(nowLocal, 'hours', true) < 0
+                ? true
+                : false,
+            // 'data.subtasks': subtasks,
+          },
+        }
+      );
+    } else {
+      taskUpdated = await ActivedNode.findOneAndUpdate(
+        { _id: taskId },
+        {
+          $set: {
+            'data.status': 'done',
+            'data.finishedAt': nowLocal,
+          },
+        }
+      );
+    }
 
     let arrowUpdated;
 
     const nextEdge = await ActivedEdge.findOne({
       flowId,
-      source: taskUpdated.id,
+      _id: edgeId,
     });
-    const edgeId = nextEdge._id;
 
     if (taskUpdated.type === 'task') {
       arrowUpdated = await ActivedEdge.findOneAndUpdate(
@@ -453,7 +470,7 @@ router.put('/task/confirm', async (req, res) => {
       );
     } else {
       arrowUpdated = await ActivedEdge.findOneAndUpdate(
-        { _id: edgeId },
+        { _id: nextEdge._id },
         { $set: { 'data.status': 'done' } }
       );
     }
@@ -644,6 +661,8 @@ router.put('/task/confirm', async (req, res) => {
       flow,
     });
   } catch (err) {
+    console.log(err);
+
     res.status(422).send({ error: err.message });
   }
 });
