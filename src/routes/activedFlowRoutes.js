@@ -6,6 +6,7 @@ const exceptions = require('../exceptions');
 const requireAuth = require('../middlewares/requireAuth');
 const router = express.Router();
 const { DateTime } = require('luxon');
+const { randomUUID } = require('crypto');
 
 const ActivedFlow = mongoose.model('ActivedFlow');
 const ActivedEdge = mongoose.model('ActivedEdge');
@@ -405,8 +406,6 @@ router.put('/node/confirm', async (req, res) => {
 
   //EdgeId
 
-  console.log(req.body);
-
   const nowLocal = moment().utcOffset(-180);
 
   try {
@@ -712,18 +711,90 @@ router.put('/undo', async (req, res) => {
   }
 });
 
-//update Task
-router.put('/task/update', async (req, res) => {
-  const { flowId, taskId, subtasks, accountable } = req.body;
-
+//add Subtask
+router.post('/task/subtask/new', async (req, res) => {
   try {
-    const newTask = await ActivedNode.findOneAndUpdate(
-      { flowId, id: taskId },
-      { $set: { 'data.subtasks': subtasks, 'data.accountable': accountable } },
+    const { taskId, title = 'Subtarefa', checked = false } = req.body;
+
+    // const currentTask = await ActivedNode.findById({ _id: taskId });
+    // const allSubtasks = currentTask.data.subtasks;
+
+    const randomId = randomUUID();
+
+    const taskUpdated = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      {
+        $push: {
+          'data.subtasks': {
+            title: title + ' ' + DateTime.now(),
+            checked,
+            id: randomId,
+          },
+        },
+      },
       { new: true }
     );
 
-    res.send({ task: newTask });
+    res.send({ task: taskUpdated });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//update Subtask
+router.put('/task/subtask/update', async (req, res) => {
+  try {
+    const { taskId, id, title = '', checked = false } = req.body;
+
+    const currentTask = await ActivedNode.findById({ _id: taskId });
+
+    const allSubtasks = currentTask.data.subtasks;
+
+    const updatingSubtasks = allSubtasks.map((item) =>
+      item.id === id ? (item = { ...item, title, checked }) : item
+    );
+
+    const taskUpdated = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      {
+        $set: { 'data.subtasks': updatingSubtasks },
+      },
+      {
+        $new: true,
+      }
+    );
+
+    res.send({ task: taskUpdated });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//removeSubtask
+
+router.delete('/task/subtask/delete', async (req, res) => {
+  try {
+    const { taskId, id } = req.body;
+
+    const currentTask = await ActivedNode.findById({ _id: taskId });
+
+    const allSubtasks = currentTask.data.subtasks;
+
+    const updatingSubtasks = allSubtasks.filter((item) => item.id !== id);
+
+    const taskUpdated = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      {
+        $set: { 'data.subtasks': updatingSubtasks },
+      },
+      {
+        $new: true,
+      }
+    );
+
+    res.send({ task: taskUpdated });
   } catch (err) {
     res.status(422).send({ error: err.message });
   }
