@@ -735,7 +735,9 @@ router.post('/task/subtask/new', async (req, res) => {
       { new: true }
     );
 
-    res.send({ task: taskUpdated });
+    const subtasks = taskUpdated.data.subtasks;
+
+    res.send({ subtasks, taskId: taskUpdated._id });
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
@@ -761,11 +763,13 @@ router.put('/task/subtask/update', async (req, res) => {
         $set: { 'data.subtasks': updatingSubtasks },
       },
       {
-        $new: true,
+        new: true,
       }
     );
 
-    res.send({ task: taskUpdated });
+    const subtasks = taskUpdated.data.subtasks;
+
+    res.send({ subtasks, taskId: taskUpdated._id });
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
@@ -774,9 +778,9 @@ router.put('/task/subtask/update', async (req, res) => {
 
 //removeSubtask
 
-router.delete('/task/subtask/delete', async (req, res) => {
+router.delete('/task/subtask/delete/:taskId/:id', async (req, res) => {
   try {
-    const { taskId, id } = req.body;
+    const { taskId, id } = req.params;
 
     const currentTask = await ActivedNode.findById({ _id: taskId });
 
@@ -790,11 +794,12 @@ router.delete('/task/subtask/delete', async (req, res) => {
         $set: { 'data.subtasks': updatingSubtasks },
       },
       {
-        $new: true,
+        new: true,
       }
     );
+    const subtasks = taskUpdated.data.subtasks;
 
-    res.send({ task: taskUpdated });
+    res.send({ subtasks, taskId: taskUpdated._id });
   } catch (err) {
     res.status(422).send({ error: err.message });
   }
