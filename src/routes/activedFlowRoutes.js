@@ -777,7 +777,6 @@ router.put('/task/subtask/update', async (req, res) => {
 });
 
 //removeSubtask
-
 router.delete('/task/subtask/delete/:taskId/:id', async (req, res) => {
   try {
     const { taskId, id } = req.params;
@@ -804,5 +803,32 @@ router.delete('/task/subtask/delete/:taskId/:id', async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
+
+//update Subtask
+router.put('/task/description', async (req, res) => {
+  try {
+    const { taskId, description = ''} = req.body;
+
+    const taskUpdated = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      {
+        $set: { 'data.comments': description },
+      },
+      {
+        new: true,
+      }
+    );
+
+    const newDescription = taskUpdated.data.comments;
+
+    res.send({ description: newDescription, taskId: taskUpdated._id });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+
+
 
 module.exports = router;
