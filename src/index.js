@@ -1,5 +1,4 @@
 require('dotenv').config();
-
 require('./models/FlowModel');
 require('./models/ActivedFlow');
 require('./models/Edge');
@@ -8,6 +7,7 @@ require('./models/ActivedEdge');
 require('./models/ActivedNode');
 require('./models/User');
 require('./models/Post');
+require('./models/ChatMessage');
 const express = require('express');
 const mongoose = require('mongoose');
 const modelRoutes = require('./routes/modelRoutes');

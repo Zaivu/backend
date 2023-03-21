@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const ObjectID = require('mongodb').ObjectID;
 const exceptions = require('../exceptions');
 const requireAuth = require('../middlewares/requireAuth');
+
 const router = express.Router();
 const { DateTime } = require('luxon');
 const { randomUUID } = require('crypto');
@@ -11,6 +12,7 @@ const { randomUUID } = require('crypto');
 const ActivedFlow = mongoose.model('ActivedFlow');
 const ActivedEdge = mongoose.model('ActivedEdge');
 const ActivedNode = mongoose.model('ActivedNode');
+const ChatMessage = mongoose.model('ChatMessage');
 
 const Node = mongoose.model('Node');
 const Edge = mongoose.model('Edge');
@@ -134,45 +136,52 @@ function walkEndLoop(nodes, edges, item, callback) {
 }
 
 //Pagination
-router.get('/pagination/:tenantId/:page', async (req, res) => {
-  const { tenantId, page = '1' } = req.params;
-  const { title = '' } = req.query;
+router.get(
+  '/pagination/:tenantId/:page',
 
-  // const isAlpha = alpha === 'true'; //Ordem do alfabeto
-  // const isCreation = creation === 'true'; //Ordem de Criação
+  async (req, res) => {
+    const { page = '1' } = req.params;
+    const { title = '' } = req.query;
+    const { _id: tenantId } = req.user;
 
-  const SortedBy = { createdAt: -1 };
+    // const isAlpha = alpha === 'true'; //Ordem do alfabeto
+    // const isCreation = creation === 'true'; //Ordem de Criação
 
-  try {
-    if (!ObjectID.isValid(tenantId)) {
-      throw exceptions.unprocessableEntity('tenantId must be a valid ObjectId');
+    const SortedBy = { createdAt: -1 };
+
+    try {
+      if (!ObjectID.isValid(tenantId)) {
+        throw exceptions.unprocessableEntity(
+          'tenantId must be a valid ObjectId'
+        );
+      }
+
+      const paginateOptions = {
+        page,
+        limit: 4,
+        sort: SortedBy, // ultimas instancias
+      };
+
+      const Pagination = await ActivedFlow.paginate(
+        { tenantId, title: { $regex: title, $options: 'i' } },
+        paginateOptions
+      );
+
+      const flows = Pagination.docs;
+      const totalPages = Pagination.totalPages;
+
+      res.send({ activedflows: flows, pages: totalPages });
+    } catch (err) {
+      const code = err.code ? err.code : '412';
+      res.status(code).send({ error: err.message, code });
     }
-
-    const paginateOptions = {
-      page,
-      limit: 4,
-      sort: SortedBy, // ultimas instancias
-    };
-
-    const Pagination = await ActivedFlow.paginate(
-      { tenantId, title: { $regex: title, $options: 'i' } },
-      paginateOptions
-    );
-
-    const flows = Pagination.docs;
-    const totalPages = Pagination.totalPages;
-
-    res.send({ activedflows: flows, pages: totalPages });
-  } catch (err) {
-    const code = err.code ? err.code : '412';
-    res.status(code).send({ error: err.message, code });
   }
-});
+);
 
 //Single Flow
 router.get('/flow/:tenantId/:flowId', async (req, res) => {
-  const { tenantId, flowId } = req.params;
-
+  const { flowId } = req.params;
+  const { _id: tenantId } = req.user;
   try {
     if (!ObjectID.isValid(tenantId) || !ObjectID.isValid(flowId)) {
       throw exceptions.unprocessableEntity(
@@ -229,7 +238,8 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
 //Add Active Flow
 router.post('/new', async (req, res) => {
   try {
-    const { flowId, title, tenantId, client = '', description } = req.body;
+    const { flowId, title, client = '', description } = req.body;
+    const { _id: tenantId } = req.user;
     // const isArray = Array.isArray;
 
     //Elementos serão puxados diretamente da requisição
@@ -406,7 +416,7 @@ router.put('/node/confirm', async (req, res) => {
 
   //EdgeId
 
-  const nowLocal = moment().utcOffset(-180);
+  const nowLocal = DateTime.now();
 
   try {
     //////////////ATUAL
@@ -414,7 +424,7 @@ router.put('/node/confirm', async (req, res) => {
     const taskExpired = await ActivedNode.findOne({ _id: taskId });
 
     // const subtasks = taskExpired.data.subtasks.map((item) => {
-    //   return { ...item, checked: true };
+    //   return { ...item, checked: true };s
     // });
 
     const nodes = await ActivedNode.find({ flowId });
@@ -807,7 +817,7 @@ router.delete('/task/subtask/delete/:taskId/:id', async (req, res) => {
 //update Subtask
 router.put('/task/description', async (req, res) => {
   try {
-    const { taskId, description = ''} = req.body;
+    const { taskId, description = '' } = req.body;
 
     const taskUpdated = await ActivedNode.findOneAndUpdate(
       { _id: taskId },
@@ -828,7 +838,49 @@ router.put('/task/description', async (req, res) => {
   }
 });
 
+//Chat Message
+//Get all log messages from id
+router.get('/chat/list/:refId', async (req, res) => {
+  try {
+    const { refId } = req.params;
 
+    const chatLog = await ChatMessage.find({ refId }).sort({ createdAt: -1 });
 
+    res.send({ chatLog });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//Send Message
+router.post('/chat/new', async (req, res) => {
+  try {
+    const { userId, refId, username, message, type } = req.body;
+
+    const baseModel = {
+      userId,
+      refId,
+      username,
+      message,
+      type,
+    };
+
+    const randomId = randomUUID();
+    const model = new ChatMessage({
+      ...baseModel,
+      userId: randomId,
+      refId: '63ed2db05fb614007b079fed',
+      createdAt: DateTime.now(),
+    });
+
+    const chatMessage = await model.save();
+
+    res.send({ chatMessage });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
 
 module.exports = router;
