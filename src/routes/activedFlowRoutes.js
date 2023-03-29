@@ -13,6 +13,8 @@ const ActivedFlow = mongoose.model('ActivedFlow');
 const ActivedEdge = mongoose.model('ActivedEdge');
 const ActivedNode = mongoose.model('ActivedNode');
 const ChatMessage = mongoose.model('ChatMessage');
+const multerConfig = require('../config/multer');
+const multer = require('multer');
 
 const Node = mongoose.model('Node');
 const Edge = mongoose.model('Edge');
@@ -866,11 +868,8 @@ router.post('/chat/new', async (req, res) => {
       type,
     };
 
-    const randomId = randomUUID();
     const model = new ChatMessage({
       ...baseModel,
-      userId: randomId,
-      refId: '63ed2db05fb614007b079fed',
       createdAt: DateTime.now(),
     });
 
@@ -881,6 +880,47 @@ router.post('/chat/new', async (req, res) => {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
+});
+
+//Files
+
+//get Files
+router.get('/files/:originalId', async (req, res) => {
+  const { originalId } = req.params;
+  const posts = await Post.find({ originalId });
+  res.send(posts);
+});
+
+//new File
+router.post(
+  '/task/new-file',
+  multer(multerConfig).single('file'),
+  async (req, res) => {
+    const { originalname: name, size, key, location: url = '' } = req.file;
+    const { originalId, type, tenantId } = req.body;
+
+    const post = await Post.create({
+      name,
+      size,
+      key,
+      url,
+      originalId,
+      type,
+      tenantId,
+    });
+
+    return res.json(post);
+  }
+);
+
+//Delete File
+router.delete('/task/remove-file/:fileId', async (req, res) => {
+  const { fileId } = req.params;
+  const post = await Post.findById(fileId);
+
+  await post.remove();
+
+  res.send();
 });
 
 module.exports = router;
