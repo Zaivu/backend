@@ -1,6 +1,6 @@
 FROM node:15.8.0
 WORKDIR /app
-COPY ["package.json", "package-lock.json", "./"]
+COPY ["package.json", "./"]
 RUN npm install --production
 RUN npm install nodemon -g --production
 COPY . . 

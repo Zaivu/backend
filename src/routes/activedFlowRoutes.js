@@ -887,8 +887,14 @@ router.post('/chat/new', async (req, res) => {
 //get Files
 router.get('/files/:originalId', async (req, res) => {
   const { originalId } = req.params;
-  const posts = await Post.find({ originalId });
-  res.send(posts);
+
+  try {
+    const posts = await Post.find({ originalId });
+    res.send(posts);
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
 });
 
 //new File
@@ -899,28 +905,39 @@ router.post(
     const { originalname: name, size, key, location: url = '' } = req.file;
     const { originalId, type, tenantId } = req.body;
 
-    const post = await Post.create({
-      name,
-      size,
-      key,
-      url,
-      originalId,
-      type,
-      tenantId,
-    });
+    try {
+      const post = await Post.create({
+        name,
+        size,
+        key,
+        url,
+        originalId,
+        type,
+        tenantId,
+      });
 
-    return res.json(post);
+      return res.json(post);
+    } catch (err) {
+      const code = err.code ? err.code : '412';
+      res.status(code).send({ error: err.message, code });
+    }
   }
 );
 
 //Delete File
 router.delete('/task/remove-file/:fileId', async (req, res) => {
   const { fileId } = req.params;
-  const post = await Post.findById(fileId);
 
-  await post.remove();
+  try {
+    const post = await Post.findById(fileId);
 
-  res.send();
+    await post.remove();
+
+    res.send();
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
 });
 
 module.exports = router;
