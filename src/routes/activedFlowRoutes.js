@@ -890,7 +890,7 @@ router.get('/files/:originalId', async (req, res) => {
 
   try {
     const posts = await Post.find({ originalId });
-    res.send(posts);
+    res.status(200).send(posts);
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
@@ -899,7 +899,7 @@ router.get('/files/:originalId', async (req, res) => {
 
 //new File
 router.post(
-  '/task/new-file',
+  '/new-file',
   multer(multerConfig).single('file'),
   async (req, res) => {
     const { originalname: name, size, key, location: url = '' } = req.file;
@@ -925,7 +925,7 @@ router.post(
 );
 
 //Delete File
-router.delete('/task/remove-file/:fileId', async (req, res) => {
+router.delete('/remove-file/:fileId', async (req, res) => {
   const { fileId } = req.params;
 
   try {
