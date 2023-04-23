@@ -841,14 +841,31 @@ router.put('/task/description', async (req, res) => {
 });
 
 //Chat Message
-//Get all log messages from id
-router.get('/chat/list/:refId', async (req, res) => {
+//Get all log messages from task id
+router.get('/chat/task/:refId', async (req, res) => {
   try {
     const { refId } = req.params;
 
-    const chatLog = await ChatMessage.find({ refId }).sort({ createdAt: -1 });
+    const chatLog = await ChatMessage.find({ refId, type: 'task' }).sort({
+      createdAt: -1,
+    });
 
-    res.send({ chatLog });
+    res.status(200).send({ chatLog });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+//Get all log messages from flow id
+router.get('/chat/flow/:refId', async (req, res) => {
+  try {
+    const { refId } = req.params;
+
+    const chatLog = await ChatMessage.find({ refId, type: 'flow' }).sort({
+      createdAt: -1,
+    });
+
+    res.status(200).send({ chatLog });
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
