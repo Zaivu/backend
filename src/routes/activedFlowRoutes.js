@@ -172,8 +172,21 @@ router.get(
       const flows = Pagination.docs;
       const totalPages = Pagination.totalPages;
 
-      res.send({ activedflows: flows, pages: totalPages });
+      const flowsElements = await Promise.all(
+        flows.map(async (item) => {
+          const nodes = await ActivedNode.find({ flowId: item._id });
+          const edges = await ActivedEdge.find({ flowId: item._id });
+
+          return {
+            ...item._doc,
+            elements: [...nodes, ...edges],
+          };
+        })
+      );
+
+      res.send({ activedflows: flowsElements, pages: totalPages });
     } catch (err) {
+      console.log(err);
       const code = err.code ? err.code : '412';
       res.status(code).send({ error: err.message, code });
     }
