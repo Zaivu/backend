@@ -165,7 +165,11 @@ router.get(
       };
 
       const Pagination = await ActivedFlow.paginate(
-        { tenantId, title: { $regex: title, $options: 'i' } },
+        {
+          tenantId,
+          isDeleted: false,
+          title: { $regex: title, $options: 'i' },
+        },
         paginateOptions
       );
 
@@ -419,6 +423,22 @@ router.post('/new', async (req, res) => {
         elements: [...acNodes, ...acEdges],
       },
     });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//Delete Actived Flow
+router.delete('/delete/:flowId', async (req, res) => {
+  const { flowId } = req.params;
+
+  try {
+    const response = await ActivedFlow.findByIdAndUpdate(flowId, {
+      isDeleted: true,
+    });
+
+    res.send({ response }).status(200);
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });

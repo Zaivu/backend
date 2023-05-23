@@ -36,6 +36,11 @@ const activedFlowSchema = new mongoose.Schema({
     type: Array,
     default: [],
   },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    required: true,
+  },
   lastUpdate: {
     type: Date,
     required: true,
