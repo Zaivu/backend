@@ -143,15 +143,26 @@ router.get(
 
   async (req, res) => {
     const { page = '1' } = req.params;
-    const { title = '' } = req.query;
+    const {
+      title = '',
+      client = '',
+      alpha = false,
+      creation = false,
+    } = req.query;
     const { _id: tenantId } = req.user;
 
-    // const isAlpha = alpha === 'true'; //Ordem do alfabeto
-    // const isCreation = creation === 'true'; //Ordem de Criação
+    const isAlpha = alpha === 'true'; //Ordem do alfabeto
+    const isCreation = creation === 'true'; //Ordem de Criação
 
-    const SortedBy = { createdAt: -1 };
+    const SortedBy = isCreation
+      ? { createdAt: 1 }
+      : isAlpha
+      ? { title: 1 }
+      : { createdAt: -1 };
 
     try {
+      // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
+
       if (!ObjectID.isValid(tenantId)) {
         throw exceptions.unprocessableEntity(
           'tenantId must be a valid ObjectId'
@@ -169,6 +180,7 @@ router.get(
           tenantId,
           isDeleted: false,
           title: { $regex: title, $options: 'i' },
+          client: { $regex: client, $options: 'i' },
         },
         paginateOptions
       );
