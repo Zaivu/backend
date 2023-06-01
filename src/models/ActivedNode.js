@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const activedNodeSchema = new mongoose.Schema({
   flowId: {
@@ -31,4 +32,5 @@ const activedNodeSchema = new mongoose.Schema({
   },
 });
 
+activedNodeSchema.plugin(mongoosePaginate);
 mongoose.model('ActivedNode', activedNodeSchema);

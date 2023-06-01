@@ -4,10 +4,189 @@ const mongoose = require('mongoose');
 const requireAuth = require('../middlewares/requireAuth');
 const ActivedFlow = mongoose.model('ActivedFlow');
 const ActivedNode = mongoose.model('ActivedNode');
+const { DateTime } = require('luxon');
+const Post = mongoose.model('Post');
+const ChatMessage = mongoose.model('ChatMessage');
 
 const router = express.Router();
 
 router.use(requireAuth);
+
+function getMomentStatus(startedAt, expirationHours, status, date) {
+  //date é a data de comparação, pode ser hoje ou a data de conclusão
+  //da tarefa
+
+  let compareDate = date;
+
+  if (status === 'done') {
+    compareDate = DateTime.fromMillis(date).setLocale('Pt-BR');
+  }
+
+  let start = DateTime.fromJSDate(startedAt).setLocale('Pt-BR');
+
+  //! Algumas Datas estão no formato numérico de milissegundos
+  const isInvalid = !start.isValid;
+  if (isInvalid) {
+    start = DateTime.fromMillis(startedAt).setLocale('Pt-BR');
+  }
+
+  const deadlineDate = start.plus({ hours: expirationHours });
+
+  const diffHours = deadlineDate.diff(compareDate, 'hours').hours;
+  const diffDays = deadlineDate.diff(compareDate, 'days').days;
+
+  const currentStatus =
+    status === 'doing'
+      ? diffHours > 0
+        ? 'doing'
+        : 'late'
+      : status === 'done'
+      ? diffHours > 0
+        ? 'done'
+        : 'doneLate'
+      : null;
+
+  return {
+    currentStatus,
+    diffHours,
+    diffDays,
+  };
+}
+//Paginação
+router.get('/pagination/:page', async (req, res) => {
+  const { page = '1' } = req.params;
+  const { _id: tenantId } = req.user;
+  const {
+    label = '',
+    client = '',
+    alpha = false,
+    creation = false,
+    status = 'doing',
+  } = req.query;
+
+  try {
+    const today = DateTime.now();
+
+    const isAlpha = alpha === 'true'; //Ordem do alfabeto
+    const isCreation = creation === 'true'; //Ordem de Criação
+
+    const SortedBy = isCreation
+      ? { createdAt: 1 }
+      : isAlpha
+      ? { label: 1 }
+      : { createdAt: -1 };
+
+    const paginateOptions = {
+      page,
+      limit: 20,
+      sort: SortedBy, // ultimas instancias
+    };
+
+    const allProjects = await ActivedFlow.find({
+      isDeleted: false,
+      client: { $regex: client, $options: 'i' },
+    });
+
+    const projects = allProjects.map(
+      (item) => (item = { title: item.title, flowId: item._id })
+    );
+
+    let ProjectBy = {};
+
+    const Pagination = await ActivedNode.paginate(
+      {
+        tenantId,
+        type: 'task',
+        'data.label': { $regex: label, $options: 'i' },
+
+        'data.status': status,
+      },
+
+      paginateOptions
+    );
+
+    await Promise.all(
+      Pagination.docs.map(async (item) => {
+        const files = await Post.find({ originalId: item._id });
+        const chatMessages = await ChatMessage.find({ refId: item._id });
+
+        const currentProject = projects.find((p) => {
+          const comparison =
+            JSON.stringify(item.flowId) === JSON.stringify(p.flowId);
+
+          if (comparison) {
+            return p;
+          }
+        });
+
+        const startedAt = item.data.startedAt;
+        const hoursUntilExpiration = item.data.expiration.number;
+
+        const taskStatus = item.data.status;
+        const moment =
+          taskStatus === 'doing'
+            ? getMomentStatus(
+                startedAt,
+                hoursUntilExpiration,
+                taskStatus,
+                today
+              )
+            : taskStatus === 'done'
+            ? getMomentStatus(
+                startedAt,
+                hoursUntilExpiration,
+                taskStatus,
+                item.data.finishedAt
+              )
+            : null;
+
+        const task = {
+          label: item.data.label,
+          _id: item._id,
+          type: item.type,
+          status: item.data.status,
+          moment: moment,
+          flowId: item.flowId,
+          files: files.length,
+          chatMessages: chatMessages.length,
+        };
+
+        //console.log({ currentProject, label: item.data.label });
+
+        if (currentProject) {
+          const index = currentProject.title;
+
+          if (index in ProjectBy) {
+            const valueExists = ProjectBy[index].some(
+              (obj) => obj.flowId === item.flowId
+            );
+
+            if (!valueExists) {
+              ProjectBy[index] = [...ProjectBy[index], task];
+            }
+          } else {
+            ProjectBy[index] = [task];
+          }
+        }
+
+        return task;
+      })
+    );
+
+    const totalPages = Pagination.totalPages;
+
+    const response = {
+      ProjectBy,
+      totalPages,
+      today,
+    };
+
+    res.send(response).status(200);
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
 
 router.get(
   '/actived-tasks/search/:tenantId/:title/:page/:flowTitle/:client/:status/:flowType/:employeer',
@@ -23,6 +202,7 @@ router.get(
       employeer,
     } = req.params;
     try {
+      //Fetching Flows
       const flows = await ActivedFlow.find(
         {
           tenantId,
@@ -47,7 +227,7 @@ router.get(
       const idArray = flows.map((item) => item._id);
 
       if (status === 'expired') {
-        const nowLocal = moment().utcOffset(-180);
+        const nowLocal = moment().utcOffset(-180); // a data de agora
 
         const nodes = await ActivedNode.find({
           tenantId,
@@ -73,6 +253,7 @@ router.get(
         });
         let newNodes = [];
 
+        //Calcular quando uma tarefa ta atrasada
         nodes.forEach((e) => {
           if (
             e.data.status === 'doing' &&

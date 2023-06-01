@@ -138,76 +138,71 @@ function walkEndLoop(nodes, edges, item, callback) {
 }
 
 //Pagination
-router.get(
-  '/pagination/:tenantId/:page',
+router.get('/pagination/:page', async (req, res) => {
+  const { page = '1' } = req.params;
+  const {
+    title = '',
+    client = '',
+    alpha = false,
+    creation = false,
+  } = req.query;
 
-  async (req, res) => {
-    const { page = '1' } = req.params;
-    const {
-      title = '',
-      client = '',
-      alpha = false,
-      creation = false,
-    } = req.query;
-    const { _id: tenantId } = req.user;
+  const { _id: tenantId } = req.user;
 
-    const isAlpha = alpha === 'true'; //Ordem do alfabeto
-    const isCreation = creation === 'true'; //Ordem de Criação
+  const isAlpha = alpha === 'true'; //Ordem do alfabeto
+  const isCreation = creation === 'true'; //Ordem de Criação
 
-    const SortedBy = isCreation
-      ? { createdAt: 1 }
-      : isAlpha
-      ? { title: 1 }
-      : { createdAt: -1 };
+  const SortedBy = isCreation
+    ? { createdAt: 1 }
+    : isAlpha
+    ? { title: 1 }
+    : { createdAt: -1 };
 
-    try {
-      // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
+  try {
+    // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
 
-      if (!ObjectID.isValid(tenantId)) {
-        throw exceptions.unprocessableEntity(
-          'tenantId must be a valid ObjectId'
-        );
-      }
-
-      const paginateOptions = {
-        page,
-        limit: 4,
-        sort: SortedBy, // ultimas instancias
-      };
-
-      const Pagination = await ActivedFlow.paginate(
-        {
-          tenantId,
-          isDeleted: false,
-          title: { $regex: title, $options: 'i' },
-          client: { $regex: client, $options: 'i' },
-        },
-        paginateOptions
-      );
-
-      const flows = Pagination.docs;
-      const totalPages = Pagination.totalPages;
-
-      const flowsElements = await Promise.all(
-        flows.map(async (item) => {
-          const nodes = await ActivedNode.find({ flowId: item._id });
-          const edges = await ActivedEdge.find({ flowId: item._id });
-
-          return {
-            ...item._doc,
-            elements: [...nodes, ...edges],
-          };
-        })
-      );
-
-      res.send({ activedflows: flowsElements, pages: totalPages });
-    } catch (err) {
-      console.log(err);
-      const code = err.code ? err.code : '412';
-      res.status(code).send({ error: err.message, code });
+    if (!ObjectID.isValid(tenantId)) {
+      throw exceptions.unprocessableEntity('tenantId must be a valid ObjectId');
     }
+
+    const paginateOptions = {
+      page,
+      limit: 4,
+      sort: SortedBy, // ultimas instancias
+    };
+
+    const Pagination = await ActivedFlow.paginate(
+      {
+        tenantId,
+        isDeleted: false,
+        title: { $regex: title, $options: 'i' },
+        client: { $regex: client, $options: 'i' },
+      },
+      paginateOptions
+    );
+
+    const flows = Pagination.docs;
+    const totalPages = Pagination.totalPages;
+
+    const flowsElements = await Promise.all(
+      flows.map(async (item) => {
+        const nodes = await ActivedNode.find({ flowId: item._id });
+        const edges = await ActivedEdge.find({ flowId: item._id });
+
+        return {
+          ...item._doc,
+          elements: [...nodes, ...edges],
+        };
+      })
+    );
+
+    res.send({ activedflows: flowsElements, pages: totalPages });
+  } catch (err) {
+    console.log(err);
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
-);
+});
 
 //Single Flow
 router.get('/flow/:tenantId/:flowId', async (req, res) => {

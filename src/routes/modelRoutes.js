@@ -188,6 +188,8 @@ router.post('/new', async (req, res) => {
     const { type, title, tenantId } = req.body.flow;
     const isArray = Array.isArray;
 
+    //req.body, req.params, req.user, req.query
+
     if (
       !(typeof title === 'string') ||
       !ObjectID.isValid(tenantId) ||

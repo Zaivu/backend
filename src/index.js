@@ -8,20 +8,24 @@ require('./models/ActivedNode');
 require('./models/User');
 require('./models/Post');
 require('./models/ChatMessage');
+
+//
 const express = require('express');
 const mongoose = require('mongoose');
+
+//Rotas
 const modelRoutes = require('./routes/modelRoutes');
 const activedFlowRoutes = require('./routes/activedFlowRoutes');
-// const activedRoutes = require('./routes/activedRoutes');
 const authRoutes = require('./routes/authRoutes');
 const usersRoutes = require('./routes/usersRoutes');
 const activedTaskRoutes = require('./routes/activedTasksRoutes');
+// const activedRoutes = require('./routes/activedRoutes');
 const cors = require('cors');
 const path = require('path');
 
 const app = express();
 
-//comment
+//middlewares
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb' }));
