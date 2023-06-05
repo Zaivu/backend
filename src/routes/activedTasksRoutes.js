@@ -35,6 +35,8 @@ function getMomentStatus(startedAt, expirationHours, status, date) {
   const diffHours = deadlineDate.diff(compareDate, 'hours').hours;
   const diffDays = deadlineDate.diff(compareDate, 'days').days;
 
+  //Calculo básico -> startedAt + expirationTime = data final
+
   const currentStatus =
     status === 'doing'
       ? diffHours > 0
@@ -61,7 +63,7 @@ router.get('/pagination/:page', async (req, res) => {
     client = '',
     alpha = false,
     creation = false,
-    status = 'doing',
+    status = 'done',
   } = req.query;
 
   try {
@@ -93,13 +95,16 @@ router.get('/pagination/:page', async (req, res) => {
 
     let ProjectBy = {};
 
+    const threshold = 1676473776693; // Unix Date format
+    1685621201402;
+
     const Pagination = await ActivedNode.paginate(
       {
         tenantId,
         type: 'task',
         'data.label': { $regex: label, $options: 'i' },
-
         'data.status': status,
+        'data.finishedAt': { $gt: threshold }, //gt -> greater than
       },
 
       paginateOptions
@@ -107,9 +112,6 @@ router.get('/pagination/:page', async (req, res) => {
 
     await Promise.all(
       Pagination.docs.map(async (item) => {
-        const files = await Post.find({ originalId: item._id });
-        const chatMessages = await ChatMessage.find({ refId: item._id });
-
         const currentProject = projects.find((p) => {
           const comparison =
             JSON.stringify(item.flowId) === JSON.stringify(p.flowId);
@@ -119,43 +121,47 @@ router.get('/pagination/:page', async (req, res) => {
           }
         });
 
-        const startedAt = item.data.startedAt;
-        const hoursUntilExpiration = item.data.expiration.number;
-
-        const taskStatus = item.data.status;
-        const moment =
-          taskStatus === 'doing'
-            ? getMomentStatus(
-                startedAt,
-                hoursUntilExpiration,
-                taskStatus,
-                today
-              )
-            : taskStatus === 'done'
-            ? getMomentStatus(
-                startedAt,
-                hoursUntilExpiration,
-                taskStatus,
-                item.data.finishedAt
-              )
-            : null;
-
-        const task = {
-          label: item.data.label,
-          _id: item._id,
-          type: item.type,
-          status: item.data.status,
-          moment: moment,
-          flowId: item.flowId,
-          files: files.length,
-          chatMessages: chatMessages.length,
-        };
-
-        //console.log({ currentProject, label: item.data.label });
-
         if (currentProject) {
+          console.log({ currentProject, label: item.data.label });
+          const files = await Post.find({ originalId: item._id });
+          const chatMessages = await ChatMessage.find({ refId: item._id });
+
+          const startedAt = item.data.startedAt;
+          const hoursUntilExpiration = item.data.expiration.number;
+
+          const taskStatus = item.data.status;
+          const moment =
+            taskStatus === 'doing'
+              ? getMomentStatus(
+                  startedAt,
+                  hoursUntilExpiration,
+                  taskStatus,
+                  today
+                )
+              : taskStatus === 'done'
+              ? getMomentStatus(
+                  startedAt,
+                  hoursUntilExpiration,
+                  taskStatus,
+                  item.data.finishedAt
+                )
+              : null;
+
+          const task = {
+            label: item.data.label,
+            _id: item._id,
+            type: item.type,
+            status: item.data.status,
+            finishedAt: item.data.finishedAt,
+            moment: moment,
+            flowId: item.flowId,
+            files: files.length,
+            chatMessages: chatMessages.length,
+          };
+
           const index = currentProject.title;
 
+          //Criar Objeto que relaciona projetos e tarefas
           if (index in ProjectBy) {
             const valueExists = ProjectBy[index].some(
               (obj) => obj.flowId === item.flowId
@@ -169,7 +175,7 @@ router.get('/pagination/:page', async (req, res) => {
           }
         }
 
-        return task;
+        return item;
       })
     );
 
@@ -254,6 +260,7 @@ router.get(
         let newNodes = [];
 
         //Calcular quando uma tarefa ta atrasada
+        //Neste caso, todas as tarefas são puxadas para serem verificadas de uma vez
         nodes.forEach((e) => {
           if (
             e.data.status === 'doing' &&

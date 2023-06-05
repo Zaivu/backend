@@ -11,6 +11,16 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+const sortByMark = (a, b) => {
+  if (a.type === 'customMark' && b.type !== 'customMark') {
+    return -1; // "mark" comes before other types
+  } else if (a.type !== 'customMark' && b.type === 'customMark') {
+    return 1; // other types come after "mark"
+  } else {
+    return 0; // maintain the existing order
+  }
+};
+
 // ? fetchFlows (pagination)
 router.get('/pagination/:tenantId/:page', async (req, res) => {
   const { tenantId, page = '1' } = req.params;
@@ -134,6 +144,8 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
     const nodes = await Node.find({ flowId });
     const edges = await Edge.find({ flowId });
 
+    const sortedNodes = nodes.sort(sortByMark);
+
     const versions = await FlowModel.find({
       parentId: flowId,
       tenantId,
@@ -141,7 +153,11 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
 
     const versionModels = await Promise.all(
       versions.map(async (it) => {
-        const newNodes = await Node.find({ flowId: it._id });
+        const newNodes = await Node.find({
+          flowId: it._id,
+        });
+
+        const newSortedNodes = newNodes.sort(sortByMark);
         const newEdges = await Edge.find({ flowId: it._id });
 
         const versionFlow = {
@@ -150,7 +166,7 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
           createdAt: it.createdAt,
           tenantId,
           type: it.type,
-          elements: [...newNodes, ...newEdges],
+          elements: [...newSortedNodes, ...newEdges],
           parentId: it.parentId,
           lastUpdate: it.lastUpdate,
         };
@@ -166,7 +182,7 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
         createdAt: flow.createdAt,
         tenantId,
         type: flow.type,
-        elements: [...nodes, ...edges],
+        elements: [...sortedNodes, ...edges],
         default: flow.default,
         lastUpdate: flow.lastUpdate,
       },
@@ -176,6 +192,7 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
 
     res.send({ flow: newFlow });
   } catch (err) {
+    console.log(err);
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
