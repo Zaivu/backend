@@ -120,13 +120,13 @@ function walkEndLoop(nodes, edges, item, callback) {
 
                 const expDate = nowLocal.plus({ hours: expNumber });
 
-                node.data.startedAt = nowLocal.fromMillis();
+                node.data.startedAt = nowLocal.toMillis();
                 node.data.expiration.date = expDate;
                 node.data.status = 'doing';
                 newStatus.push(node.id);
               }
               if (node.type === 'conditional') {
-                node.data.startedAt = nowLocal.fromMills();
+                node.data.startedAt = nowLocal.toMillis();
                 node.data.status = 'doing';
                 newStatus.push(node.id);
               }
