@@ -35,7 +35,7 @@ function getMomentStatus(startedAt, expirationHours, status, date) {
   const diffHours = deadlineDate.diff(compareDate, 'hours').hours;
   const diffDays = deadlineDate.diff(compareDate, 'days').days;
 
-  //Calculo básico -> startedAt + expirationTime = data final
+  //Calculo básico -> startedAt + expirationTime = data final  -> milissegundos
 
   const currentStatus =
     status === 'doing'
@@ -122,7 +122,6 @@ router.get('/pagination/:page', async (req, res) => {
         });
 
         if (currentProject) {
-          console.log({ currentProject, label: item.data.label });
           const files = await Post.find({ originalId: item._id });
           const chatMessages = await ChatMessage.find({ refId: item._id });
 
@@ -182,7 +181,7 @@ router.get('/pagination/:page', async (req, res) => {
     const totalPages = Pagination.totalPages;
 
     const response = {
-      ProjectBy,
+      projects: ProjectBy,
       totalPages,
       today,
     };

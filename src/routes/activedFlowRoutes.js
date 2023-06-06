@@ -80,7 +80,7 @@ function walkEndLoop(nodes, edges, item, callback) {
           walkEndLoop(nodes, edges, el, callback);
           callback(el);
         } else {
-          const nowLocal = moment().utcOffset(-180);
+          const nowLocal = DateTime.now();
           ///TAREFA OU CONDICIONAL
           if (
             el.type === 'task' ||
@@ -91,9 +91,16 @@ function walkEndLoop(nodes, edges, item, callback) {
               ///ativa o timer
             }
 
+            //aq
             el.data.status = 'doing';
-            el.data.startedAt = nowLocal;
+            el.data.startedAt = nowLocal.toMillis();
             newStatus.push(el.id);
+
+            if (el.type === 'task') {
+              const expNumber = el.data.expiration.number;
+              const expDate = nowLocal.plus({ hours: expNumber });
+              el.data.expiration.date = expDate;
+            }
           }
           ////EVENTO DE FIM
           else if (el.type === 'eventEnd') {
@@ -108,12 +115,18 @@ function walkEndLoop(nodes, edges, item, callback) {
                 node.data.status = 'done';
               }
               if (node.type === 'task') {
-                node.data.startedAt = nowLocal;
+                //aq
+                const expNumber = node.data.expiration.number;
+
+                const expDate = nowLocal.plus({ hours: expNumber });
+
+                node.data.startedAt = nowLocal.fromMillis();
+                node.data.expiration.date = expDate;
                 node.data.status = 'doing';
                 newStatus.push(node.id);
               }
               if (node.type === 'conditional') {
-                node.data.startedAt = nowLocal;
+                node.data.startedAt = nowLocal.fromMills();
                 node.data.status = 'doing';
                 newStatus.push(node.id);
               }
@@ -266,6 +279,7 @@ router.post('/new', async (req, res) => {
   try {
     const { flowId, title, client = '', description } = req.body;
     const { _id: tenantId } = req.user;
+
     // const isArray = Array.isArray;
 
     //Elementos serão puxados diretamente da requisição
@@ -278,6 +292,9 @@ router.post('/new', async (req, res) => {
     ) {
       throw exceptions.unprocessableEntity('Invalid argument types');
     }
+
+    const nowLocal = DateTime.now();
+
     const nodes = await Node.find({ flowId });
     const edges = await Edge.find({ flowId });
 
@@ -315,15 +332,13 @@ router.post('/new', async (req, res) => {
 
     /////////////////////
 
-    const nowLocal = DateTime.now();
-
     let baseModel = {
       title,
       tenantId,
       description,
       client,
-      createdAt: nowLocal,
-      lastUpdate: nowLocal,
+      createdAt: nowLocal.toMillis(),
+      lastUpdate: nowLocal.toMillis(),
     };
 
     const liveModel = new ActivedFlow({ ...baseModel, default: null });
@@ -362,6 +377,8 @@ router.post('/new', async (req, res) => {
             });
           }
 
+          const isAlreadyDoing = doing.find((e) => e === item.id);
+
           const node = new ActivedNode({
             type: item.type,
             id: item.id,
@@ -372,14 +389,23 @@ router.post('/new', async (req, res) => {
                     ...item.data,
                     comments: '',
                     posts: [],
-                    status: doing.find((e) => e === item.id)
-                      ? 'doing'
-                      : 'pending',
+                    status: isAlreadyDoing ? 'doing' : 'pending',
                     subtasks,
                     accountable: 'Ninguém',
-                    startedAt: doing.find((e) => e === item.id)
-                      ? nowLocal
+
+                    startedAt: isAlreadyDoing //
+                      ? nowLocal.toMillis()
                       : undefined,
+
+                    expiration: {
+                      ...item.data.expiration,
+
+                      date: isAlreadyDoing
+                        ? nowLocal
+                            .plus({ hours: item.data.expiration.number })
+                            .toMillis()
+                        : null,
+                    },
                   }
                 : item.type === 'timerEvent'
                 ? {
@@ -388,7 +414,7 @@ router.post('/new', async (req, res) => {
                       ? 'doing'
                       : 'pending',
                     startedAt: doing.find((e) => e === item.id)
-                      ? nowLocal
+                      ? nowLocal.toMillis()
                       : undefined,
                   }
                 : {
@@ -431,6 +457,7 @@ router.post('/new', async (req, res) => {
       },
     });
   } catch (err) {
+    console.log(err);
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
@@ -441,9 +468,13 @@ router.delete('/delete/:flowId', async (req, res) => {
   const { flowId } = req.params;
 
   try {
-    const response = await ActivedFlow.findByIdAndUpdate(flowId, {
-      isDeleted: true,
-    });
+    // const response = await ActivedFlow.findByIdAndUpdate(flowId, {
+    //   isDeleted: true,
+    // });
+
+    const response = await ActivedFlow.findOneAndRemove({ _id: flowId });
+    await ActivedNode.remove({ flowId });
+    await ActivedEdge.remove({ flowId });
 
     res.send({ response }).status(200);
   } catch (err) {
@@ -456,14 +487,12 @@ router.delete('/delete/:flowId', async (req, res) => {
 router.put('/node/confirm', async (req, res) => {
   const { flowId, taskId, edgeId } = req.body;
 
-  //EdgeId
-
   const nowLocal = DateTime.now();
 
   try {
     //////////////ATUAL
 
-    const taskExpired = await ActivedNode.findOne({ _id: taskId });
+    const node = await ActivedNode.findOne({ _id: taskId });
 
     // const subtasks = taskExpired.data.subtasks.map((item) => {
     //   return { ...item, checked: true };s
@@ -472,22 +501,25 @@ router.put('/node/confirm', async (req, res) => {
     const nodes = await ActivedNode.find({ flowId });
     const edges = await ActivedEdge.find({ flowId });
 
+    //! LastState deve ser revisado no futuro..
     await ActivedFlow.findByIdAndUpdate(flowId, {
       lastState: [...nodes, ...edges],
     });
 
     let taskUpdated;
 
-    if (taskExpired.type === 'task') {
+    //Tarefa que será setada como 'done'
+    if (node.type === 'task') {
       taskUpdated = await ActivedNode.findOneAndUpdate(
         { _id: taskId },
         {
           $set: {
             'data.status': 'done',
-            'data.finishedAt': nowLocal,
+            'data.finishedAt': nowLocal.toMillis(),
+            //Se ela expirou, mas verificar a real necessidade dessa parte
             'data.expired':
-              moment(taskExpired.data.startedAt)
-                .add(taskExpired.data.expiration.number, 'hours')
+              moment(node.data.startedAt)
+                .add(node.data.expiration.number, 'hours')
                 .diff(nowLocal, 'hours', true) < 0
                 ? true
                 : false,
@@ -496,12 +528,13 @@ router.put('/node/confirm', async (req, res) => {
         }
       );
     } else {
+      //Qualquer outro node
       taskUpdated = await ActivedNode.findOneAndUpdate(
         { _id: taskId },
         {
           $set: {
             'data.status': 'done',
-            'data.finishedAt': nowLocal,
+            'data.finishedAt': nowLocal.toMillis(),
           },
         }
       );
@@ -509,11 +542,12 @@ router.put('/node/confirm', async (req, res) => {
 
     let arrowUpdated;
 
+    //-> Aresta mais a direita
     const nextEdge = await ActivedEdge.findOne({
       flowId,
       _id: edgeId,
     });
-
+    //Preciso verificar se há alguma diferença nessa condicional
     if (taskUpdated.type === 'task') {
       arrowUpdated = await ActivedEdge.findOneAndUpdate(
         { source: taskUpdated.id, flowId },
@@ -526,13 +560,13 @@ router.put('/node/confirm', async (req, res) => {
       );
     }
 
-    ////////PROXIMO
+    //PROXIMO do fluxo ->
     const nextTask = await ActivedNode.findOne({
       id: arrowUpdated.target,
       flowId,
     });
 
-    //////////Tarefa ou condicional
+    //Tarefa ou condicional
     if (
       nextTask.type === 'task' ||
       nextTask.type === 'conditional' ||
@@ -540,11 +574,33 @@ router.put('/node/confirm', async (req, res) => {
     ) {
       const nodes = await ActivedNode.find({ flowId });
 
-      await ActivedNode.findOneAndUpdate(
-        { _id: nextTask._id },
-        { $set: { 'data.status': 'doing', 'data.startedAt': nowLocal } }
-      );
+      if (nextTask.type === 'task') {
+        const expNumber = nextTask.data.expiration.number;
 
+        const expDate = nowLocal.plus({ hours: expNumber });
+
+        await ActivedNode.findOneAndUpdate(
+          { _id: nextTask._id },
+          {
+            $set: {
+              'data.status': 'doing',
+              'data.startedAt': nowLocal.toMillis(),
+              'data.expiration.date': expDate.toMillis(),
+            },
+          }
+        );
+      } else {
+        await ActivedNode.findOneAndUpdate(
+          { _id: nextTask._id },
+          {
+            $set: {
+              'data.status': 'doing',
+              'data.startedAt': nowLocal.toMillis(),
+            },
+          }
+        );
+      }
+      //newStatus ?
       if (newStatus[0] !== 'finished') {
         let filter = nodes.filter(
           (item) =>
@@ -574,15 +630,19 @@ router.put('/node/confirm', async (req, res) => {
           node.data.status = 'done';
         }
         if (node.type === 'task') {
-          node.data.startedAt = nowLocal;
+          const expNumber = node.data.expiration.number;
+          const expDate = nowLocal.plus({ hours: expNumber });
+
+          node.data.startedAt = nowLocal.toMillis();
           node.data.status = 'doing';
+          node.data.expiration.date = expDate.toMillis();
         }
         if (node.type === 'timerEvent') {
-          node.data.startedAt = nowLocal;
+          node.data.startedAt = nowLocal.toMillis();
           node.data.status = 'doing';
         }
         if (node.type === 'conditional') {
-          node.data.startedAt = nowLocal;
+          node.data.startedAt = nowLocal.toMillis();
           node.data.status = 'doing';
         }
         if (node.type === 'parallel') {
