@@ -22,13 +22,7 @@ function getMomentStatus(startedAt, expirationHours, status, date) {
     compareDate = DateTime.fromMillis(date).setLocale('Pt-BR');
   }
 
-  let start = DateTime.fromJSDate(startedAt).setLocale('Pt-BR');
-
-  //! Algumas Datas estão no formato numérico de milissegundos
-  const isInvalid = !start.isValid;
-  if (isInvalid) {
-    start = DateTime.fromMillis(startedAt).setLocale('Pt-BR');
-  }
+  const start = DateTime.fromMillis(startedAt).setLocale('Pt-BR');
 
   const deadlineDate = start.plus({ hours: expirationHours });
 
@@ -59,6 +53,7 @@ router.get('/pagination/:page', async (req, res) => {
   const { page = '1' } = req.params;
   const { _id: tenantId } = req.user;
   const {
+    flowTitle = '',
     label = '',
     client = '',
     alpha = false,
@@ -80,13 +75,14 @@ router.get('/pagination/:page', async (req, res) => {
 
     const paginateOptions = {
       page,
-      limit: 20,
+      limit: 16,
       sort: SortedBy, // ultimas instancias
     };
 
     const allProjects = await ActivedFlow.find({
       isDeleted: false,
       client: { $regex: client, $options: 'i' },
+      title: { $regex: flowTitle, $options: 'i' },
     });
 
     const projects = allProjects.map(
@@ -95,17 +91,27 @@ router.get('/pagination/:page', async (req, res) => {
 
     let ProjectBy = {};
 
-    const threshold = 1676473776693; // Unix Date format
-    1685621201402;
+    const currentStatus =
+      status === 'late' || status === 'doing' ? 'doing' : status;
 
     const Pagination = await ActivedNode.paginate(
-      {
-        tenantId,
-        type: 'task',
-        'data.label': { $regex: label, $options: 'i' },
-        'data.status': status,
-        'data.finishedAt': { $gt: threshold }, //gt -> greater than
-      },
+      currentStatus === 'doing'
+        ? {
+            tenantId,
+            type: 'task',
+            'data.label': { $regex: label, $options: 'i' },
+            'data.status': currentStatus,
+            'data.expiration.date':
+              status === 'late'
+                ? { $lt: today.toMillis() }
+                : { $gt: today.toMillis() },
+          }
+        : {
+            tenantId,
+            type: 'task',
+            'data.label': { $regex: label, $options: 'i' },
+            'data.status': currentStatus,
+          },
 
       paginateOptions
     );
