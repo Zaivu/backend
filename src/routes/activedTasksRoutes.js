@@ -53,7 +53,7 @@ router.get('/pagination/:page', async (req, res) => {
   const { page = '1' } = req.params;
   const { _id: tenantId } = req.user;
   const {
-    flowTitle = '',
+    flowTitle = 'ed2',
     label = '',
     client = '',
     alpha = false,
@@ -89,6 +89,8 @@ router.get('/pagination/:page', async (req, res) => {
       (item) => (item = { title: item.title, flowId: item._id })
     );
 
+    const ids = projects.map((item) => item.flowId);
+
     let ProjectBy = {};
 
     const currentStatus =
@@ -98,6 +100,7 @@ router.get('/pagination/:page', async (req, res) => {
       currentStatus === 'doing'
         ? {
             tenantId,
+            flowId: ids,
             type: 'task',
             'data.label': { $regex: label, $options: 'i' },
             'data.status': currentStatus,
@@ -108,6 +111,7 @@ router.get('/pagination/:page', async (req, res) => {
           }
         : {
             tenantId,
+            flowId: ids,
             type: 'task',
             'data.label': { $regex: label, $options: 'i' },
             'data.status': currentStatus,
@@ -157,6 +161,7 @@ router.get('/pagination/:page', async (req, res) => {
             _id: item._id,
             type: item.type,
             status: item.data.status,
+            description: item.data.comments,
             finishedAt: item.data.finishedAt,
             moment: moment,
             flowId: item.flowId,
