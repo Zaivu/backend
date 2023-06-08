@@ -7,7 +7,7 @@ const ActivedNode = mongoose.model('ActivedNode');
 const { DateTime } = require('luxon');
 const Post = mongoose.model('Post');
 const ChatMessage = mongoose.model('ChatMessage');
-
+const exceptions = require('../exceptions');
 const router = express.Router();
 
 router.use(requireAuth);
@@ -53,12 +53,12 @@ router.get('/pagination/:page', async (req, res) => {
   const { page = '1' } = req.params;
   const { _id: tenantId } = req.user;
   const {
-    flowTitle = 'ed2',
+    flowTitle = '',
     label = '',
     client = '',
     alpha = false,
     creation = false,
-    status = 'done',
+    status = 'doing', // 'doing' || 'late' || 'pending || done'
   } = req.query;
 
   try {
@@ -66,6 +66,17 @@ router.get('/pagination/:page', async (req, res) => {
 
     const isAlpha = alpha === 'true'; //Ordem do alfabeto
     const isCreation = creation === 'true'; //Ordem de Criação
+    const isStatusException =
+      status === 'doing' ||
+      status === 'late' ||
+      status === 'pending' ||
+      status === 'done'
+        ? false
+        : true;
+
+    if (isStatusException) {
+      throw exceptions.unprocessableEntity('invalid query status');
+    }
 
     const SortedBy = isCreation
       ? { createdAt: 1 }
@@ -163,6 +174,7 @@ router.get('/pagination/:page', async (req, res) => {
             status: item.data.status,
             description: item.data.comments,
             finishedAt: item.data.finishedAt,
+            duration: item.data.expiration.number,
             moment: moment,
             flowId: item.flowId,
             files: files.length,
@@ -203,187 +215,6 @@ router.get('/pagination/:page', async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
-router.get(
-  '/actived-tasks/search/:tenantId/:title/:page/:flowTitle/:client/:status/:flowType/:employeer',
-  async (req, res) => {
-    const {
-      tenantId,
-      page,
-      title,
-      client,
-      flowTitle,
-      status,
-      flowType,
-      employeer,
-    } = req.params;
-    try {
-      //Fetching Flows
-      const flows = await ActivedFlow.find(
-        {
-          tenantId,
-          title: {
-            $regex: flowTitle === 'undefined' ? RegExp('.*') : flowTitle,
-            $options: 'i',
-          },
-          client: {
-            $regex: client === 'undefined' ? RegExp('.*') : client,
-            $options: 'i',
-          },
-          status:
-            flowType === 'undefined'
-              ? { $exists: true }
-              : flowType === 'actived'
-              ? { $ne: ['finished'] }
-              : ['finished'],
-        },
-        { lastState: 0, comments: 0 }
-      );
-
-      const idArray = flows.map((item) => item._id);
-
-      if (status === 'expired') {
-        const nowLocal = moment().utcOffset(-180); // a data de agora
-
-        const nodes = await ActivedNode.find({
-          tenantId,
-          'data.status':
-            status === 'undefined'
-              ? { $exists: true }
-              : status === 'expired'
-              ? 'doing'
-              : status === 'doneExpired'
-              ? 'done'
-              : status,
-          'data.label': {
-            $regex: title === 'undefined' ? RegExp('.*') : title,
-            $options: 'i',
-          },
-          'data.expired':
-            status === 'doneExpired'
-              ? true
-              : { $ne: true } || { $exists: false },
-          'data.accountable':
-            employeer === 'undefined' ? { $exists: true } : employeer,
-          flowId: { $in: idArray },
-        });
-        let newNodes = [];
-
-        //Calcular quando uma tarefa ta atrasada
-        //Neste caso, todas as tarefas são puxadas para serem verificadas de uma vez
-        nodes.forEach((e) => {
-          if (
-            e.data.status === 'doing' &&
-            moment(e.data.startedAt)
-              .add(e.data.expiration.number, 'hours')
-              .diff(nowLocal, 'hours', true) < 0
-          ) {
-            newNodes.push(e);
-          }
-        });
-
-        const tasks = [];
-        const number_of_pages = newNodes.length;
-
-        newNodes.forEach((item, index) => {
-          if (index >= (page - 1) * 5 && index < page * 5) {
-            let newItem = JSON.parse(JSON.stringify(item));
-            let newFlow = flows.find(
-              (it) => it._id.toString() === item.flowId.toString()
-            );
-
-            if (newFlow.status[0] === 'finished') {
-              newItem.data.client = newFlow.client;
-              newItem.data.flowTitle = newFlow.title;
-              newItem.data.flowType = 'finished';
-            } else {
-              newItem.data.client = newFlow.client;
-              newItem.data.flowTitle = newFlow.title;
-              newItem.data.flowType = 'actived';
-            }
-
-            tasks.push(newItem);
-          }
-        });
-
-        res.send({ tasks: tasks, pages: number_of_pages });
-      } else {
-        const number_of_pages = Math.ceil(
-          (await ActivedNode.count({
-            tenantId,
-            'data.status':
-              status === 'undefined'
-                ? { $exists: true }
-                : status === 'expired'
-                ? 'doing'
-                : status === 'doneExpired'
-                ? 'done'
-                : status,
-            'data.label': {
-              $regex: title === 'undefined' ? RegExp('.*') : title,
-              $options: 'i',
-            },
-            'data.expired':
-              status === 'doneExpired'
-                ? true
-                : { $ne: true } || { $exists: false },
-            'data.accountable':
-              employeer === 'undefined' ? { $exists: true } : employeer,
-            flowId: { $in: idArray },
-          })) / 5
-        );
-
-        const nodes = await ActivedNode.find({
-          tenantId,
-          'data.status':
-            status === 'undefined'
-              ? { $exists: true }
-              : status === 'expired'
-              ? 'doing'
-              : status === 'doneExpired'
-              ? 'done'
-              : status,
-          'data.label': {
-            $regex: title === 'undefined' ? RegExp('.*') : title,
-            $options: 'i',
-          },
-          'data.expired':
-            status === 'doneExpired'
-              ? true
-              : { $ne: true } || { $exists: false },
-          'data.accountable':
-            employeer === 'undefined' ? { $exists: true } : employeer,
-          flowId: { $in: idArray },
-        })
-          .skip(5 * (page - 1))
-          .limit(5);
-
-        const tasks = nodes.map((item) => {
-          let newItem = JSON.parse(JSON.stringify(item));
-          let newFlow = flows.find(
-            (it) => it._id.toString() === item.flowId.toString()
-          );
-
-          if (newFlow.status[0] === 'finished') {
-            newItem.data.client = newFlow.client;
-            newItem.data.flowTitle = newFlow.title;
-            newItem.data.flowType = 'finished';
-          } else {
-            newItem.data.client = newFlow.client;
-            newItem.data.flowTitle = newFlow.title;
-            newItem.data.flowType = 'actived';
-          }
-
-          return newItem;
-        });
-
-        res.send({ tasks: tasks, pages: number_of_pages });
-      }
-    } catch (err) {
-      res.status(422).send({ error: err.message });
-    }
-  }
-);
 
 router.get(
   '/actived-tasks/stats/:employeer/:startDate/:endDate',
