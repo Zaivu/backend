@@ -19,10 +19,10 @@ function getMomentStatus(startedAt, expirationHours, status, date) {
   let compareDate = date;
 
   if (status === 'done') {
-    compareDate = DateTime.fromMillis(date).setLocale('Pt-BR');
+    compareDate = DateTime.fromMillis(date);
   }
 
-  const start = DateTime.fromMillis(startedAt).setLocale('Pt-BR');
+  const start = DateTime.fromMillis(startedAt);
 
   const deadlineDate = start.plus({ hours: expirationHours });
 
@@ -46,6 +46,8 @@ function getMomentStatus(startedAt, expirationHours, status, date) {
     currentStatus,
     diffHours,
     diffDays,
+    deadline: status === 'doing' ? deadlineDate.toMillis() : null,
+    finishedAt: status === 'done' ? date : null,
   };
 }
 //Paginação
