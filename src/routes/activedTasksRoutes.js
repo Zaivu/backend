@@ -81,14 +81,14 @@ router.get('/pagination/:page', async (req, res) => {
     }
 
     const SortedBy = isCreation
-      ? { createdAt: 1 }
+      ? { 'data.startedAt': 1 }
       : isAlpha
-      ? { label: 1 }
-      : { createdAt: -1 };
+      ? { 'data.label': 1 }
+      : { 'data.startedAt': -1 };
 
     const paginateOptions = {
       page,
-      limit: 16,
+      limit: 10,
       sort: SortedBy, // ultimas instancias
     };
 
@@ -108,6 +108,9 @@ router.get('/pagination/:page', async (req, res) => {
 
     const currentStatus =
       status === 'late' || status === 'doing' ? 'doing' : status;
+
+
+  
 
     const Pagination = await ActivedNode.paginate(
       currentStatus === 'doing'
@@ -132,8 +135,11 @@ router.get('/pagination/:page', async (req, res) => {
 
       paginateOptions
     );
+    // console.log("***********************************")
+    // console.log({ queries: req.query })
+    // console.log({ tasks: Pagination.docs.map(item => item = { label: item.data.label, flowId: item.flowId }) })
 
-    await Promise.all(
+    const taskPagination =  await Promise.all(
       Pagination.docs.map(async (item) => {
         const currentProject = projects.find((p) => {
           const comparison =
@@ -183,27 +189,41 @@ router.get('/pagination/:page', async (req, res) => {
             chatMessages: chatMessages.length,
           };
 
-          const index = currentProject.title;
-
-          //Criar Objeto que relaciona projetos e tarefas
-          if (index in ProjectBy) {
-            const valueExists = ProjectBy[index].some(
-              (obj) => obj.flowId === item.flowId
-            );
-
-            if (!valueExists) {
-              ProjectBy[index] = [...ProjectBy[index], task];
-            }
-          } else {
-            ProjectBy[index] = [task];
-          }
+      
+        
+          return task;
         }
 
-        return item;
       })
     );
+   
 
     const totalPages = Pagination.totalPages;
+
+
+
+     taskPagination.forEach((item)=> {
+    
+      const currentProject = projects.find(p => JSON.stringify(item.flowId) === JSON.stringify(p.flowId))
+    
+      
+      const index = currentProject.title;
+      const task = item;
+
+      if (index in ProjectBy) {
+          
+        const valueExists = ProjectBy[index].some(
+          (obj) => obj.flowId === item.flowId
+        );
+
+        if (!valueExists) {
+          ProjectBy[index] = [...ProjectBy[index], task];
+        }
+      } else {
+        ProjectBy[index] = [task];
+      }
+    })
+    
 
     const response = {
       projects: ProjectBy,
