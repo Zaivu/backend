@@ -225,19 +225,19 @@ router.get("/pagination/history/:page", async (req, res) => {
     client = "",
     alpha = false,
     creation = false,
-    conclusion = false,
+    finishedAt = false,
   } = req.query;
   const { _id: tenantId } = req.user;
 
   const isAlpha = alpha === "true"; //Ordem do alfabeto
   const isCreation = creation === "true"; //Ordem de Criação
-  const isConclusion = conclusion === "true"; //Ordem de Conclusão
+  const isFinishedAt = finishedAt === "true"; //Ordem de Conclusão
 
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
     ? { title: 1 }
-    : isConclusion
+    : isFinishedAt
     ? { finishedAt: -1 } // Variavel da Ordem de conclusão //! Em Teste
     : { createdAt: -1 };
 
@@ -250,6 +250,7 @@ router.get("/pagination/history/:page", async (req, res) => {
       page,
       limit: 4,
       sort: SortedBy, // ultimas instancias
+      collation: { locale: "en", strength: 2 }, // Perform case-insensitive sort
     };
 
     const Pagination = await ActivedFlow.paginate(
