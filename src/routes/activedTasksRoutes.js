@@ -76,6 +76,9 @@ router.get('/pagination/:page', async (req, res) => {
         ? false
         : true;
 
+
+
+
     if (isStatusException) {
       throw exceptions.unprocessableEntity('invalid query status');
     }
@@ -104,13 +107,10 @@ router.get('/pagination/:page', async (req, res) => {
 
     const ids = projects.map((item) => item.flowId);
 
-    let ProjectBy = {};
+    
 
     const currentStatus =
       status === 'late' || status === 'doing' ? 'doing' : status;
-
-
-  
 
     const Pagination = await ActivedNode.paginate(
       currentStatus === 'doing'
@@ -135,6 +135,9 @@ router.get('/pagination/:page', async (req, res) => {
 
       paginateOptions
     );
+
+      
+
     // console.log("***********************************")
     // console.log({ queries: req.query })
     // console.log({ tasks: Pagination.docs.map(item => item = { label: item.data.label, flowId: item.flowId }) })
@@ -175,16 +178,19 @@ router.get('/pagination/:page', async (req, res) => {
                 )
               : null;
 
+
           const task = {
             label: item.data.label,
             _id: item._id,
             type: item.type,
             status: item.data.status,
             description: item.data.comments,
-            finishedAt: item.data.finishedAt,
+            subtasks: item.data.subtasks,
+ 
             duration: item.data.expiration.number,
             moment: moment,
             flowId: item.flowId,
+            projectName: currentProject.title,
             files: files.length,
             chatMessages: chatMessages.length,
           };
@@ -200,33 +206,9 @@ router.get('/pagination/:page', async (req, res) => {
 
     const totalPages = Pagination.totalPages;
 
-
-
-     taskPagination.forEach((item)=> {
     
-      const currentProject = projects.find(p => JSON.stringify(item.flowId) === JSON.stringify(p.flowId))
-    
-      
-      const index = currentProject.title;
-      const task = item;
-
-      if (index in ProjectBy) {
-          
-        const valueExists = ProjectBy[index].some(
-          (obj) => obj.flowId === item.flowId
-        );
-
-        if (!valueExists) {
-          ProjectBy[index] = [...ProjectBy[index], task];
-        }
-      } else {
-        ProjectBy[index] = [task];
-      }
-    })
-    
-
     const response = {
-      projects: ProjectBy,
+      pagination: taskPagination,
       totalPages,
       today,
     };

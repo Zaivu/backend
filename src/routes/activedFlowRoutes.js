@@ -187,6 +187,7 @@ router.get("/pagination/:page", async (req, res) => {
     const Pagination = await ActivedFlow.paginate(
       {
         tenantId,
+        finishedAt: null,
         isDeleted: false,
         title: { $regex: title, $options: "i" },
         client: { $regex: client, $options: "i" },
@@ -365,6 +366,13 @@ router.post("/new", async (req, res) => {
     }
 
     const nowLocal = DateTime.now();
+
+    const alreadyExist = await ActivedFlow.findOne({ title });
+
+    if(alreadyExist){
+      throw exceptions.alreadyExists()
+    }
+
 
     const nodes = await Node.find({ flowId });
     const edges = await Edge.find({ flowId });
@@ -614,10 +622,16 @@ router.put("/node/confirm", async (req, res) => {
     let arrowUpdated;
 
     //-> Aresta mais a direita
-    const nextEdge = await ActivedEdge.findOne({
+
+    const searchNextEdge = edgeId ? {
       flowId,
       _id: edgeId,
-    });
+    } : {
+      flowId,
+      source: node.id
+    }
+    
+    const nextEdge = await ActivedEdge.findOne(searchNextEdge);
     //Preciso verificar se há alguma diferença nessa condicional
     if (taskUpdated.type === "task") {
       arrowUpdated = await ActivedEdge.findOneAndUpdate(
