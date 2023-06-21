@@ -5,6 +5,13 @@ module.exports = {
 
     return error;
   },
+  acessDenied: (msg = null) => {
+    const message = msg ? ' - ' + msg : '';
+    const error = new Error('Access Denied ' + message);
+    error.code = '403';
+
+    return error;
+  },
   unprocessableEntity: (msg = null) => {
     const message = msg ? ' - ' + msg : '';
     const error = new Error('Unprocessable Entity' + message);

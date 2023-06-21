@@ -53,7 +53,8 @@ function getMomentStatus(startedAt, expirationHours, status, date) {
 //Paginação
 router.get('/pagination/:page', async (req, res) => {
   const { page = '1' } = req.params;
-  const { _id: tenantId } = req.user;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id;
   const {
     flowTitle = '',
     label = '',
@@ -75,9 +76,6 @@ router.get('/pagination/:page', async (req, res) => {
       status === 'done'
         ? false
         : true;
-
-
-
 
     if (isStatusException) {
       throw exceptions.unprocessableEntity('invalid query status');
@@ -107,8 +105,6 @@ router.get('/pagination/:page', async (req, res) => {
 
     const ids = projects.map((item) => item.flowId);
 
-    
-
     const currentStatus =
       status === 'late' || status === 'doing' ? 'doing' : status;
 
@@ -136,13 +132,11 @@ router.get('/pagination/:page', async (req, res) => {
       paginateOptions
     );
 
-      
-
     // console.log("***********************************")
     // console.log({ queries: req.query })
     // console.log({ tasks: Pagination.docs.map(item => item = { label: item.data.label, flowId: item.flowId }) })
 
-    const taskPagination =  await Promise.all(
+    const taskPagination = await Promise.all(
       Pagination.docs.map(async (item) => {
         const currentProject = projects.find((p) => {
           const comparison =
@@ -178,7 +172,6 @@ router.get('/pagination/:page', async (req, res) => {
                 )
               : null;
 
-
           const task = {
             label: item.data.label,
             _id: item._id,
@@ -186,7 +179,7 @@ router.get('/pagination/:page', async (req, res) => {
             status: item.data.status,
             description: item.data.comments,
             subtasks: item.data.subtasks,
- 
+
             duration: item.data.expiration.number,
             moment: moment,
             flowId: item.flowId,
@@ -195,18 +188,13 @@ router.get('/pagination/:page', async (req, res) => {
             chatMessages: chatMessages.length,
           };
 
-      
-        
           return task;
         }
-
       })
     );
-   
 
     const totalPages = Pagination.totalPages;
 
-    
     const response = {
       pagination: taskPagination,
       totalPages,

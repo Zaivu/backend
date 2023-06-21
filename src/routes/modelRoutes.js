@@ -8,8 +8,9 @@ const requireAuth = require('../middlewares/requireAuth');
 const { DateTime } = require('luxon');
 const exceptions = require('../exceptions');
 const router = express.Router();
+const checkPermission = require('../middlewares/userPermission');
 
-router.use(requireAuth);
+router.use(requireAuth, checkPermission);
 
 const sortByMark = (a, b) => {
   if (a.type === 'customMark' && b.type !== 'customMark') {
@@ -23,11 +24,13 @@ const sortByMark = (a, b) => {
 
 // ? fetchFlows (pagination)
 router.get('/pagination/:tenantId/:page', async (req, res) => {
-  const { tenantId, page = '1' } = req.params;
+  const { page = '1' } = req.params;
   const { title = '', alpha = false, creation = false } = req.query;
+  const user = req.user;
 
   const isAlpha = alpha === 'true'; //Ordem do alfabeto
   const isCreation = creation === 'true'; //Ordem de Criação
+  const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
 
   const SortedBy = isCreation
     ? { createdAt: 1 }
@@ -80,8 +83,10 @@ router.get('/pagination/:tenantId/:page', async (req, res) => {
 });
 
 // ? ListAll
-router.get('/list/:tenantId', async (req, res) => {
-  const { tenantId } = req.params;
+router.get('/list/', async (req, res) => {
+  // const { tenantId } = req.params;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id;
 
   try {
     if (!ObjectID.isValid(tenantId)) {
@@ -125,11 +130,13 @@ router.get('/list/:tenantId', async (req, res) => {
 });
 
 // ? FetchSingleFlow
-router.get('/flow/:tenantId/:flowId', async (req, res) => {
-  const { tenantId, flowId } = req.params;
+router.get('/flow/:flowId', async (req, res) => {
+  const { flowId } = req.params;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id;
 
   try {
-    if (!ObjectID.isValid(tenantId) | !ObjectID.isValid(flowId)) {
+    if (!ObjectID.isValid(flowId)) {
       throw exceptions.unprocessableEntity(
         'flowId | tenantId must be a valid ObjectID'
       );
@@ -202,16 +209,15 @@ router.get('/flow/:tenantId/:flowId', async (req, res) => {
 router.post('/new', async (req, res) => {
   try {
     const elements = req.body.elements;
-    const { type, title, tenantId } = req.body.flow;
+    const { type, title } = req.body.flow;
     const isArray = Array.isArray;
+
+    const user = req.user;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
 
     //req.body, req.params, req.user, req.query
 
-    if (
-      !(typeof title === 'string') ||
-      !ObjectID.isValid(tenantId) ||
-      !isArray(elements)
-    ) {
+    if (!(typeof title === 'string') || !isArray(elements)) {
       throw exceptions.unprocessableEntity('Invalid argumnt type');
     }
     if (type !== 'main') {
@@ -286,14 +292,16 @@ router.post('/new', async (req, res) => {
 router.post('/new/model', async (req, res) => {
   try {
     const elements = req.body.elements;
-    const { type, title, tenantId, parentId } = req.body.flow;
+    const { type, title, parentId } = req.body.flow;
     const isArray = Array.isArray;
+
+    const user = req.user;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
 
     if (
       !(typeof title === 'string') ||
       !isArray(elements) ||
-      !ObjectID.isValid(parentId) ||
-      !ObjectID.isValid(tenantId)
+      !ObjectID.isValid(parentId)
     ) {
       throw exceptions.unprocessableEntity('Invalid argument type');
     }

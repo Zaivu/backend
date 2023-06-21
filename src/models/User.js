@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
@@ -16,10 +17,12 @@ const userSchema = new mongoose.Schema({
   },
   rank: {
     type: String,
-    default: 'Funcionário',
+    enum: ['admin', 'gerente', 'colaborador'],
+    default: 'colaborador',
   },
   status: {
     type: String,
+    default: 'idle',
   },
   resetToken: {
     type: String,
@@ -35,6 +38,9 @@ const userSchema = new mongoose.Schema({
   tenantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+    required: function () {
+      return this.rank === 'admin' ? false : true;
+    },
   },
 });
 
@@ -77,4 +83,5 @@ userSchema.methods.comparePassword = function (candidatePassword) {
   });
 };
 
+userSchema.plugin(mongoosePaginate);
 mongoose.model('User', userSchema);

@@ -36,6 +36,10 @@ const activedFlowSchema = new mongoose.Schema({
     type: Array,
     default: [],
   },
+  accountable:{
+    type: Object,
+    default: {},
+  },
   isDeleted: {
     type: Boolean,
     default: false,

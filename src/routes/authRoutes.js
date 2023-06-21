@@ -6,9 +6,11 @@ const crypto = require('crypto');
 const secret = require('../middlewares/config');
 const bcrypt = require('bcrypt');
 const router = express.Router();
+const exceptions = require('../exceptions');
 const AWS = require('aws-sdk');
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 
+//Enviar email
 async function sendEmail(fromAddress, toAddress, subject, body) {
   const ses = new AWS.SESV2();
   var params = {
@@ -28,6 +30,7 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
   await ses.sendEmail(params).promise();
 }
 
+//Validar conta
 router.post('/auth/sign-up/', async (req, res) => {
   const { username, password, email } = req.body;
 
@@ -43,7 +46,7 @@ router.post('/auth/sign-up/', async (req, res) => {
         username,
         expireToken: null,
         resetToken: null,
-        status: 'actived',
+        status: 'active',
       },
       { new: true }
     );
@@ -58,18 +61,27 @@ router.post('/auth/sign-up/', async (req, res) => {
   }
 });
 
-router.post('/auth/create-user/admin', async (req, res) => {
-  const { username, password, email } = req.body;
+//create account for 'gerente' | 'colaborador'
+router.post('/auth/create-user/colab', async (req, res) => {
+  const { username, tenantId, rank = 'gerente', password, email } = req.body;
 
   try {
     const salt = await bcrypt.genSalt(10);
     const newPass = await bcrypt.hash(password, salt);
 
+    const tenantUser = await User.findOne({ _id: tenantId });
+
+    if (!tenantUser) {
+      throw exceptions.entityNotFound();
+    }
+
     const user = new User({
-      username: username,
-      email: email,
+      username,
+      email,
+      enterpriseName: tenantUser.enterpriseName,
+      rank,
       password: newPass,
-      rank: 'Gerente',
+      tenantId: tenantUser._id,
     });
 
     await user.save();
@@ -84,6 +96,36 @@ router.post('/auth/create-user/admin', async (req, res) => {
   }
 });
 
+//Criar conta admin
+router.post('/auth/create-user/admin', async (req, res) => {
+  const { username, password, email, enterpriseName = '' } = req.body;
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const newPass = await bcrypt.hash(password, salt);
+
+    const user = new User({
+      username,
+      email,
+      enterpriseName,
+      password: newPass,
+      rank: 'admin',
+      status: 'active',
+    });
+
+    await user.save();
+
+    const userCopy = JSON.parse(JSON.stringify(user));
+
+    delete userCopy['password'];
+
+    res.send({ user: userCopy });
+  } catch (err) {
+    return res.status(422).send(err.message);
+  }
+});
+
+//Logar contar
 router.post('/auth/sign-in', async (req, res) => {
   const { login, password } = req.body;
 
@@ -135,6 +177,7 @@ router.post('/auth/sign-in', async (req, res) => {
   }
 });
 
+//Gerar new token
 router.post('/auth/new-token', async (req, res) => {
   const { refreshToken, userId } = req.body;
   jwt.verify(refreshToken, secret.config.jwtRefreshSecret, async (err) => {
@@ -152,6 +195,7 @@ router.post('/auth/new-token', async (req, res) => {
   });
 });
 
+//Validar token
 router.get('/auth/validate-token/:token', async (req, res) => {
   const { token } = req.params;
 
@@ -170,6 +214,7 @@ router.get('/auth/validate-token/:token', async (req, res) => {
   }
 });
 
+//Resetar senha
 router.put('/auth/reset-password-email', async (req, res) => {
   const { email } = req.body;
 
@@ -195,6 +240,7 @@ router.put('/auth/reset-password-email', async (req, res) => {
   res.send('sucesso');
 });
 
+//Nova Senha
 router.put('/auth/new-password', async (req, res) => {
   const { password, resetToken } = req.body;
 
@@ -219,22 +265,7 @@ router.put('/auth/new-password', async (req, res) => {
   res.json({ message: 'senha redefinida com sucesso' });
 });
 
-router.put('/auth/edit-username', async (req, res) => {
-  const { username, id } = req.body;
-
-  try {
-    const newUser = await User.findByIdAndUpdate(
-      id,
-      { username },
-      { new: true }
-    );
-
-    res.send(newUser);
-  } catch (err) {
-    return res.status(422).send(err.message);
-  }
-});
-
+//Editar Senha
 router.put('/auth/edit-password', async (req, res) => {
   const { oldPass, newPass, id } = req.body;
 
@@ -255,6 +286,24 @@ router.put('/auth/edit-password', async (req, res) => {
   }
 });
 
+//Renomear usuário
+router.put('/auth/edit-username', async (req, res) => {
+  const { username, id } = req.body;
+
+  try {
+    const newUser = await User.findByIdAndUpdate(
+      id,
+      { username },
+      { new: true }
+    );
+
+    res.send(newUser);
+  } catch (err) {
+    return res.status(422).send(err.message);
+  }
+});
+
+//Editar Email
 router.put('/auth/edit-email', async (req, res) => {
   const { email, id } = req.body;
 
@@ -274,6 +323,7 @@ router.put('/auth/edit-email', async (req, res) => {
   }
 });
 
+//Editar nome de empresa
 router.put('/auth/edit-enterprise-name', async (req, res) => {
   const { enterpriseName, id } = req.body;
 

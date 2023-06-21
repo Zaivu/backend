@@ -9,7 +9,9 @@ const multerConfig = require('../config/multer');
 const crypto = require('crypto');
 const AWS = require('aws-sdk');
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
+router.use(requireAuth);
 
+//Enviar email
 async function sendEmail(fromAddress, toAddress, subject, body) {
   const ses = new AWS.SESV2();
   var params = {
@@ -29,6 +31,7 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
   await ses.sendEmail(params).promise();
 }
 
+//Gerar token
 async function generateToken() {
   const buffer = await new Promise((resolve, reject) => {
     crypto.randomBytes(256, function (ex, buffer) {
@@ -43,8 +46,51 @@ async function generateToken() {
   return token;
 }
 
-router.use(requireAuth);
+router.get('/users/pagination/:page', async (req, res) => {
+  const { page = '1' } = req.params;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id;
 
+  try {
+    // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
+
+    const paginateOptions = {
+      page,
+      limit: 5,
+    };
+
+    const Pagination = await User.paginate(
+      {
+        $or: [{ _id: tenantId }, { tenantId }, { _id: user._id }],
+      },
+      paginateOptions
+    );
+
+    const users = Pagination.docs;
+    const totalPages = Pagination.totalPages;
+
+    const filtering = await users.map(
+      (item) =>
+        (item = {
+          rank: item.rank,
+          status: item.status,
+          username: item.username,
+          email: item.email,
+          enterpriseName: item.enterpriseName,
+          tenantId: item.tenantId,
+          _id: item._id,
+        })
+    );
+
+    res.send({ users: filtering, pages: totalPages });
+  } catch (err) {
+    console.log(err);
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//Pegar informações de usuário colab
 router.get('/employees/:tenantId', async (req, res) => {
   const { tenantId } = req.params;
 
@@ -70,6 +116,7 @@ router.get('/employees/:tenantId', async (req, res) => {
   }
 });
 
+//Deletar usuário colab
 router.delete(
   '/employees/employee/delete/:username/:tenantId',
   async (req, res) => {
@@ -86,6 +133,7 @@ router.delete(
   }
 );
 
+//Adicionar avatar
 router.put(
   '/users/profile/picture/new',
   multer(multerConfig).single('file'),
@@ -113,6 +161,7 @@ router.put(
   }
 );
 
+//Pegar foto de avatar
 router.get('/users/profile/picture/:originalId/:type', async (req, res) => {
   const { originalId, type } = req.params;
   var picture;
@@ -135,6 +184,7 @@ router.get('/users/profile/picture/:originalId/:type', async (req, res) => {
   }
 });
 
+//Deletar foto de avatar
 router.delete('/users/profile/picture/delete/:originalId', async (req, res) => {
   const { originalId } = req.params;
   const post = await Post.findOne({ originalId });
@@ -148,6 +198,7 @@ router.delete('/users/profile/picture/delete/:originalId', async (req, res) => {
   });
 });
 
+//Enviar link de registro
 router.put('/users/send-register-link', async (req, res) => {
   const { name, email, tenantId, rank } = req.body;
 
@@ -156,7 +207,7 @@ router.put('/users/send-register-link', async (req, res) => {
   if (await User.findOne({ email })) {
     res.send({ error: 'Email já cadastrado' });
   } else {
-    const token = await generateToken();
+    // const token = await generateToken();
     const token2 = await generateToken();
 
     const user = new User({
@@ -185,6 +236,7 @@ router.put('/users/send-register-link', async (req, res) => {
   }
 });
 
+//Reenviar link de email
 router.put('/users/resend-email', async (req, res) => {
   const { id } = req.body;
 
