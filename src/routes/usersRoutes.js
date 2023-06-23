@@ -69,9 +69,16 @@ router.get('/users/pagination/:page', async (req, res) => {
     const users = Pagination.docs;
     const totalPages = Pagination.totalPages;
 
-    const filtering = await users.map(
-      (item) =>
-        (item = {
+    const filtering = await Promise.all(
+      users.map(async (item) => {
+        let avatar = process.env.DEFAULT_PROFILE_PICTURE;
+        const hasPicture = await Post.findOne({ originalId: item._id });
+
+        if (hasPicture) {
+          avatar = hasPicture.url;
+        }
+
+        return (item = {
           rank: item.rank,
           status: item.status,
           username: item.username,
@@ -79,7 +86,9 @@ router.get('/users/pagination/:page', async (req, res) => {
           enterpriseName: item.enterpriseName,
           tenantId: item.tenantId,
           _id: item._id,
-        })
+          avatarURL: avatar,
+        });
+      })
     );
 
     res.send({ users: filtering, pages: totalPages });
@@ -138,42 +147,44 @@ router.put(
   '/users/profile/picture/new',
   multer(multerConfig).single('file'),
   async (req, res) => {
-    const { originalname: name, size, key, location: url = '' } = req.file;
-    const { originalId, type, tenantId } = req.body;
+    try {
+      const { originalname: name, size, key, location: url = '' } = req.file;
+      const { _id: originalId, tenantId } = req.user;
 
-    const oldPost = await Post.findOne({ originalId });
+      const tenant = tenantId ? tenantId : originalId;
 
-    if (oldPost) {
-      await oldPost.remove();
+      const oldPost = await Post.findOne({ originalId });
+
+      if (oldPost) {
+        await oldPost.remove();
+      }
+
+      const post = await Post.create({
+        name,
+        size,
+        key,
+        url,
+        originalId,
+        tenantId: tenant,
+        type: 'avatar',
+      });
+
+      res.send(post).status(200);
+    } catch (err) {
+      const code = err.code ? err.code : '412';
+
+      res.status(code).send({ error: err.message, code });
     }
-
-    const post = await Post.create({
-      name,
-      size,
-      key,
-      url,
-      originalId,
-      type,
-      tenantId,
-    });
-
-    return res.json(post);
   }
 );
 
-//Pegar foto de avatar
-router.get('/users/profile/picture/:originalId/:type', async (req, res) => {
-  const { originalId, type } = req.params;
+//Fetch avatar
+router.get('/users/picture/', async (req, res) => {
   var picture;
-  const user =
-    type === 'email'
-      ? await User.findOne({
-          email: originalId,
-        })
-      : await User.findOne({
-          _id: originalId,
-        });
-  picture = await Post.findOne({ originalId: user._id });
+
+  const { _id: originalId } = req.user;
+
+  picture = await Post.findOne({ originalId });
 
   if (!picture) {
     res.send({

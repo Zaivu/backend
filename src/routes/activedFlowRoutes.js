@@ -13,6 +13,7 @@ const ActivedFlow = mongoose.model('ActivedFlow');
 const ActivedEdge = mongoose.model('ActivedEdge');
 const ActivedNode = mongoose.model('ActivedNode');
 const ChatMessage = mongoose.model('ChatMessage');
+const User = mongoose.model('User');
 const multerConfig = require('../config/multer');
 const multer = require('multer');
 const checkPermission = require('../middlewares/userPermission');
@@ -318,6 +319,30 @@ router.get('/flow/:flowId', async (req, res) => {
           newItem.data.attachLength = await Post.count({
             originalId: item._id,
           });
+          const userId = item.data.accountable?.userId;
+
+          if (userId) {
+            let avatarURL = process.env.DEFAULT_PROFILE_PICTURE;
+            const hasPicture = await Post.findOne({
+              originalId: userId,
+              type: 'avatar',
+            });
+
+            const currentUser = await User.findOne({ _id: userId });
+
+            if (hasPicture) {
+              avatarURL = hasPicture.url;
+            }
+
+            const accountable = {
+              ...item.data.accountable,
+              avatarURL,
+              username: currentUser.username,
+            };
+
+            return { ...newItem, data: { ...item.data, accountable } };
+          }
+
           return newItem;
         } else {
           return item;

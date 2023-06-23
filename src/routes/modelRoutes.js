@@ -41,10 +41,6 @@ router.get('/pagination/:tenantId/:page', async (req, res) => {
   try {
     // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
 
-    if (!ObjectID.isValid(tenantId)) {
-      throw exceptions.unprocessableEntity('tenantId must be a valid ObjectId');
-    }
-
     const paginateOptions = {
       page,
       limit: 4,
