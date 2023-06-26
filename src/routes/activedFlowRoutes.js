@@ -28,6 +28,38 @@ router.use(requireAuth);
 
 let newStatus = [];
 
+async function getAccountableUsers(nodes) {
+  let relatedUsers = [];
+  await Promise.all(
+    nodes.map(async (n) => {
+      const userId = n.data.accountable?.userId;
+
+      if (userId) {
+        let avatarURL = process.env.DEFAULT_PROFILE_PICTURE;
+        const hasPicture = await Post.findOne({
+          originalId: userId,
+          type: 'avatar',
+        });
+
+        const currentUser = await User.findOne({ _id: userId });
+
+        if (hasPicture) {
+          avatarURL = hasPicture.url;
+        }
+
+        relatedUsers.push({
+          ...n.data.accountable,
+          avatarURL,
+          username: currentUser.username,
+        });
+      }
+      return n;
+    })
+  );
+
+  return relatedUsers;
+}
+
 function walkParallelLoop(nodes, edges, item, callback) {
   ////SE FOR ARESTA
   if (item.source) {
@@ -200,10 +232,14 @@ router.get('/pagination/:page', checkPermission, async (req, res) => {
     const flowsElements = await Promise.all(
       flows.map(async (item) => {
         const nodes = await ActivedNode.find({ flowId: item._id });
+
+        const relatedUsers = await getAccountableUsers(nodes);
+
         const edges = await ActivedEdge.find({ flowId: item._id });
 
         return {
           ...item._doc,
+          relatedUsers,
           elements: [...nodes, ...edges],
         };
       })
@@ -243,10 +279,6 @@ router.get('/pagination/history/:page', checkPermission, async (req, res) => {
     : { createdAt: -1 };
 
   try {
-    if (!ObjectID.isValid(tenantId)) {
-      throw exceptions.unprocessableEntity('tenantId must be a valid ObjectId');
-    }
-
     const paginateOptions = {
       page,
       limit: 4,
@@ -268,20 +300,30 @@ router.get('/pagination/history/:page', checkPermission, async (req, res) => {
     const flows = Pagination.docs;
     const totalPages = Pagination.totalPages;
 
-    //Selector of information
-    const response = flows.map(
-      (flow) =>
-        (flow = {
-          tenantId: flow.tenantId,
-          _id: flow._id,
-          title: flow.title,
-          description: flow.description,
-          createdAt: flow.createdAt,
-          finishedAt: flow.finishedAt,
-          client: flow.client,
-          // Eventualmente incluir responsaveis
-        })
+    const response = await Promise.all(
+      flows.map(async (item) => {
+        const nodes = await ActivedNode.find({
+          flowId: item._id,
+          'data.accountable.userId': { $exists: true },
+        });
+
+        const relatedUsers = await getAccountableUsers(nodes);
+        return {
+          tenantId: item.tenantId,
+          _id: item._id,
+          title: item.title,
+          description: item.description,
+          createdAt: item.createdAt,
+          finishedAt: item.finishedAt,
+          client: item.client,
+          accountable: item.accountable,
+          relatedUsers,
+        };
+      })
     );
+
+    //Selector of information
+
     res.send({ activedflows: response, pages: totalPages });
   } catch (err) {
     console.log(err);
