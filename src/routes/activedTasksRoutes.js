@@ -1,6 +1,6 @@
 const express = require('express');
-const moment = require('moment');
 const mongoose = require('mongoose');
+const User = mongoose.model('User');
 const requireAuth = require('../middlewares/requireAuth');
 const ActivedFlow = mongoose.model('ActivedFlow');
 const ActivedNode = mongoose.model('ActivedNode');
@@ -208,82 +208,22 @@ router.get('/pagination/:page', async (req, res) => {
   }
 });
 
-router.get(
-  '/actived-tasks/stats/:employeer/:startDate/:endDate',
-  async (req, res) => {
-    const { employeer, startDate, endDate } = req.params;
+//Update task Accountable
+router.put('/accountable/:userId/:taskId', async (req, res) => {
+  const { userId, taskId } = req.params;
 
-    //try {
-    const nowLocal = moment().utcOffset(-180);
+  try {
+    const user = await User.findOne({ _id: userId });
+    const task = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      { 'data.accountable': { userId: user._id } }
+    );
 
-    const startDateFormat = moment(startDate).unix() * 1000;
-    const endDateFormat = moment(endDate).unix() * 1000;
-
-    const tasksDone = await ActivedNode.find({
-      'data.accountable': employeer,
-      type: 'task',
-      'data.status': 'done',
-      'data.finishedAt': {
-        $gte: startDateFormat,
-        $lte: endDateFormat,
-      },
-    });
-    const tasksDoing = await ActivedNode.find({
-      'data.accountable': employeer,
-      type: 'task',
-      'data.status': 'doing',
-    });
-
-    let doneHours = 0;
-    let doingHours = 0;
-    let producReal = 0;
-    let producIdeal = 0;
-
-    tasksDone.forEach((el) => {
-      doneHours += el.data?.expiration?.number;
-
-      producReal += moment(el.data.finishedAt).diff(
-        moment(el.data.startedAt),
-        'hours',
-        true
-      );
-      producIdeal += el.data?.expiration?.number;
-    });
-
-    tasksDoing.forEach((el) => (doingHours += el.data?.expiration?.number));
-
-    const hours = { doneHours, doingHours };
-    const productivity = (producIdeal / producReal) * 100;
-
-    const doingTasks = tasksDoing.filter(
-      (el) =>
-        moment(el.data.startedAt)
-          .add(el.data.expiration.number, 'hours')
-          .diff(nowLocal, 'hours', true) >= 0
-    ).length;
-
-    const expiredTasks = tasksDoing.filter(
-      (el) =>
-        moment(el.data.startedAt)
-          .add(el.data.expiration.number, 'hours')
-          .diff(nowLocal, 'hours', true) < 0
-    ).length;
-
-    const doneTasks = tasksDone.filter((el) => !el.data.expired).length;
-
-    const expiredDoneTasks = tasksDone.filter(
-      (el) => el.data.expired === true
-    ).length;
-
-    res.send({
-      hours,
-      productivity,
-      stats: { doingTasks, expiredTasks, doneTasks, expiredDoneTasks },
-    });
-    // } catch (err) {
-    //   res.status(422).send({ error: err.message });
-    // }
+    res.send({ task }).status(200);
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
-);
+});
 
 module.exports = router;

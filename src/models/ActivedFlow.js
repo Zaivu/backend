@@ -36,15 +36,11 @@ const activedFlowSchema = new mongoose.Schema({
     type: Array,
     default: [],
   },
-  accountable:{
+  accountable: {
     type: Object,
-    default: {},
+    default: null,
   },
-  isDeleted: {
-    type: Boolean,
-    default: false,
-    required: true,
-  },
+
   lastUpdate: {
     type: Date,
     required: true,
@@ -52,6 +48,11 @@ const activedFlowSchema = new mongoose.Schema({
   lastState: {
     type: Array,
     default: [],
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    required: true,
   },
 });
 

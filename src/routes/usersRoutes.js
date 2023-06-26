@@ -8,6 +8,8 @@ const router = express.Router();
 const multerConfig = require('../config/multer');
 const crypto = require('crypto');
 const AWS = require('aws-sdk');
+const checkPermission = require('../middlewares/userPermission');
+const exceptions = require('../exceptions');
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 router.use(requireAuth);
 
@@ -45,7 +47,7 @@ async function generateToken() {
 
   return token;
 }
-
+//Pagination Members
 router.get('/users/pagination/:page', async (req, res) => {
   const { page = '1' } = req.params;
   const user = req.user;
@@ -61,7 +63,10 @@ router.get('/users/pagination/:page', async (req, res) => {
 
     const Pagination = await User.paginate(
       {
-        $or: [{ _id: tenantId }, { tenantId }, { _id: user._id }],
+        $and: [
+          { $or: [{ _id: tenantId }, { tenantId }, { _id: user._id }] },
+          { isDeleted: { $ne: true } },
+        ],
       },
       paginateOptions
     );
@@ -99,48 +104,50 @@ router.get('/users/pagination/:page', async (req, res) => {
   }
 });
 
-//Pegar informações de usuário colab
-router.get('/employees/:tenantId', async (req, res) => {
-  const { tenantId } = req.params;
+//Fetch avatar
+router.get('/users/picture/', async (req, res) => {
+  var picture;
 
-  try {
-    const users = await User.find({ tenantId });
+  const { _id: originalId } = req.user;
 
-    const user = await User.findById(tenantId);
+  picture = await Post.findOne({ originalId });
 
-    let userCopy = JSON.parse(JSON.stringify(user));
-    delete userCopy['password'];
-
-    const usersCopy = JSON.parse(JSON.stringify(users)).map((item) => {
-      delete item['password'];
-
-      return item;
+  if (!picture) {
+    res.send({
+      url: process.env.DEFAULT_PROFILE_PICTURE,
     });
-
-    usersCopy.push(userCopy);
-
-    res.send(usersCopy);
-  } catch (err) {
-    return res.status(422).send(err.message);
+  } else {
+    res.send({ url: picture.url });
   }
 });
 
-//Deletar usuário colab
-router.delete(
-  '/employees/employee/delete/:username/:tenantId',
-  async (req, res) => {
-    const { username, tenantId } = req.params;
+//Atualizar rank de usuário colab
+router.put('/users/rank/update/:userId', checkPermission, async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const user = await User.findOne({ userId });
 
-    try {
-      const user = await User.findOne({ username, tenantId });
-      await User.deleteOne({ _id: user._id });
-
-      res.send({ userId: user._id });
-    } catch (err) {
-      return res.status(422).send(err.message);
+    if (!user) {
+      throw exceptions.entityNotFound();
     }
+
+    if (user.rank !== 'colaborador') {
+      throw new Error('Only Colaborators can be promoted');
+    }
+
+    const update = await User.findOneAndUpdate(
+      { userId },
+      { $set: { rank: 'gerente' } },
+      { new: true }
+    );
+
+    res.status(200).send({ user: update });
+  } catch (err) {
+    console.log(err);
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
   }
-);
+});
 
 //Adicionar avatar
 router.put(
@@ -178,23 +185,6 @@ router.put(
   }
 );
 
-//Fetch avatar
-router.get('/users/picture/', async (req, res) => {
-  var picture;
-
-  const { _id: originalId } = req.user;
-
-  picture = await Post.findOne({ originalId });
-
-  if (!picture) {
-    res.send({
-      url: process.env.DEFAULT_PROFILE_PICTURE,
-    });
-  } else {
-    res.send({ url: picture.url });
-  }
-});
-
 //Deletar foto de avatar
 router.delete('/users/profile/picture/delete/:originalId', async (req, res) => {
   const { originalId } = req.params;
@@ -209,6 +199,41 @@ router.delete('/users/profile/picture/delete/:originalId', async (req, res) => {
   });
 });
 
+//Deletar usuário colab
+router.delete('/users/:userId', checkPermission, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const thisUser = req.user;
+
+    const toDelete = await User.findOne({
+      _id: userId,
+      tenantId: thisUser._id,
+    });
+
+    //Caso o usuário n seja admin e não seja a relação gerente -> colaborador
+    // ou o id do usuário pra deletar seja o mesmo do logado
+    if (
+      (thisUser.rank !== 'admin' &&
+        !(thisUser.rank === 'gerente' && toDelete.rank === 'colaborador')) ||
+      thisUser._id === userId
+    ) {
+      throw exceptions.unprocessableEntity();
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    console.log(updatedUser);
+    res.status(200).send({ user: updatedUser });
+  } catch (err) {
+    res.status(422).send(err.message);
+  }
+});
+
+//? Part de envio de link
 //Enviar link de registro
 router.put('/users/send-register-link', async (req, res) => {
   const { name, email, tenantId, rank } = req.body;

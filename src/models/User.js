@@ -41,6 +41,11 @@ const userSchema = new mongoose.Schema({
     required: function () {
       return this.rank === 'admin' ? false : true;
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
   },
 });
 

@@ -341,12 +341,33 @@ router.get('/flow/:flowId', async (req, res) => {
 
   try {
     if (!ObjectID.isValid(flowId)) {
-      throw exceptions.unprocessableEntity(
-        'tenantId | flowId must be a valid ObjectId'
-      );
+      throw exceptions.unprocessableEntity('flowId must be a valid ObjectId');
     }
 
     const flow = await ActivedFlow.findOne({ _id: flowId });
+
+    let flowAccountable = flow.accountable;
+    const userAcc = flow.accountable?.userId;
+
+    if (userAcc) {
+      let avatarURL = process.env.DEFAULT_PROFILE_PICTURE;
+      const hasPicture = await Post.findOne({
+        originalId: userAcc,
+        type: 'avatar',
+      });
+
+      const currentUser = await User.findOne({ _id: userAcc });
+
+      if (hasPicture) {
+        avatarURL = hasPicture.url;
+      }
+
+      flowAccountable = {
+        ...flow.data.accountable,
+        avatarURL,
+        username: currentUser.username,
+      };
+    }
 
     const nodes = await ActivedNode.find({ flowId: flow._id });
     const edges = await ActivedEdge.find({ flowId: flow._id });
@@ -407,9 +428,74 @@ router.get('/flow/:flowId', async (req, res) => {
       posts: flow.posts,
       client: flow.client,
       lastState: flow.lastState,
+      accountable: flowAccountable,
       elements: [...newNodesWithPosts, ...newEdges],
     };
     res.send({ flow: newFlow });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//List all to flow accountable's
+router.get('/list/accountable', checkPermission, async (req, res) => {
+  try {
+    const user = req.user;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
+
+    const query =
+      user.rank === 'gerente'
+        ? { $or: [{ _id: tenantId }, { tenantId }, { _id: user._id }] }
+        : { $or: [{ tenantId }] };
+
+    const usersByTenant = await User.find(query);
+
+    res.status(200).send({ usersByTenant });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//get Files
+router.get('/files/:originalId', async (req, res) => {
+  const { originalId } = req.params;
+
+  try {
+    const posts = await Post.find({ originalId });
+    res.status(200).send(posts);
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//Get all log messages from task id
+router.get('/chat/task/:refId', async (req, res) => {
+  try {
+    const { refId } = req.params;
+
+    const chatLog = await ChatMessage.find({ refId, type: 'task' }).sort({
+      createdAt: -1,
+    });
+
+    res.status(200).send({ chatLog });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+//Get all log messages from flow id
+router.get('/chat/flow/:refId', async (req, res) => {
+  try {
+    const { refId } = req.params;
+
+    const chatLog = await ChatMessage.find({ refId, type: 'flow' }).sort({
+      createdAt: -1,
+    });
+
+    res.status(200).send({ chatLog });
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
@@ -610,21 +696,45 @@ router.post('/new', checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
+//Send Chat Message
+router.post('/chat/new', async (req, res) => {
+  try {
+    const { userId, refId, username, message, type } = req.body;
 
-//Delete Actived Flow
-router.delete('/delete/:flowId', checkPermission, async (req, res) => {
-  const { flowId } = req.params;
+    const baseModel = {
+      userId,
+      refId,
+      username,
+      message,
+      type,
+    };
+
+    const model = new ChatMessage({
+      ...baseModel,
+      createdAt: DateTime.now(),
+    });
+
+    const chatMessage = await model.save();
+
+    res.send({ chatMessage });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//Update flow Accountable
+router.put('/accountable/:userId/:flowId', async (req, res) => {
+  const { userId, flowId } = req.params;
 
   try {
-    // const response = await ActivedFlow.findByIdAndUpdate(flowId, {
-    //   isDeleted: true,
-    // });
+    const user = await User.findOne({ _id: userId });
+    const flow = await ActivedFlow.findOneAndUpdate(
+      { _id: flowId },
+      { accountable: { userId: user._id } }
+    );
 
-    const response = await ActivedFlow.findOneAndRemove({ _id: flowId });
-    await ActivedNode.remove({ flowId });
-    await ActivedEdge.remove({ flowId });
-
-    res.send({ response }).status(200);
+    res.status(200).send({ flow });
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
@@ -1096,80 +1206,6 @@ router.put('/task/description', async (req, res) => {
   }
 });
 
-//Chat Message
-//Get all log messages from task id
-router.get('/chat/task/:refId', async (req, res) => {
-  try {
-    const { refId } = req.params;
-
-    const chatLog = await ChatMessage.find({ refId, type: 'task' }).sort({
-      createdAt: -1,
-    });
-
-    res.status(200).send({ chatLog });
-  } catch (err) {
-    const code = err.code ? err.code : '412';
-    res.status(code).send({ error: err.message, code });
-  }
-});
-//Get all log messages from flow id
-router.get('/chat/flow/:refId', async (req, res) => {
-  try {
-    const { refId } = req.params;
-
-    const chatLog = await ChatMessage.find({ refId, type: 'flow' }).sort({
-      createdAt: -1,
-    });
-
-    res.status(200).send({ chatLog });
-  } catch (err) {
-    const code = err.code ? err.code : '412';
-    res.status(code).send({ error: err.message, code });
-  }
-});
-
-//Send Message
-router.post('/chat/new', async (req, res) => {
-  try {
-    const { userId, refId, username, message, type } = req.body;
-
-    const baseModel = {
-      userId,
-      refId,
-      username,
-      message,
-      type,
-    };
-
-    const model = new ChatMessage({
-      ...baseModel,
-      createdAt: DateTime.now(),
-    });
-
-    const chatMessage = await model.save();
-
-    res.send({ chatMessage });
-  } catch (err) {
-    const code = err.code ? err.code : '412';
-    res.status(code).send({ error: err.message, code });
-  }
-});
-
-//Files
-
-//get Files
-router.get('/files/:originalId', async (req, res) => {
-  const { originalId } = req.params;
-
-  try {
-    const posts = await Post.find({ originalId });
-    res.status(200).send(posts);
-  } catch (err) {
-    const code = err.code ? err.code : '412';
-    res.status(code).send({ error: err.message, code });
-  }
-});
-
 //new File
 router.post(
   '/new-file',
@@ -1196,6 +1232,26 @@ router.post(
     }
   }
 );
+
+//Delete Actived Flow
+router.delete('/delete/:flowId', checkPermission, async (req, res) => {
+  const { flowId } = req.params;
+
+  try {
+    // const response = await ActivedFlow.findByIdAndUpdate(flowId, {
+    //   isDeleted: true,
+    // });
+
+    const response = await ActivedFlow.findOneAndRemove({ _id: flowId });
+    await ActivedNode.remove({ flowId });
+    await ActivedEdge.remove({ flowId });
+
+    res.send({ response }).status(200);
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
 
 //Delete File
 router.delete('/remove-file/:fileId', async (req, res) => {

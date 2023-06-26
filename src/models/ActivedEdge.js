@@ -43,6 +43,11 @@ const activedEdgeSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    required: true,
+  },
 });
 
 mongoose.model('ActivedEdge', activedEdgeSchema);
