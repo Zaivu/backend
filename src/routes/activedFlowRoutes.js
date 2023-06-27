@@ -59,6 +59,16 @@ async function getAccountableUsers(nodes) {
 
   return relatedUsers;
 }
+async function getAvatar(userId) {
+  let avatar = process.env.DEFAULT_PROFILE_PICTURE;
+  const hasPicture = await Post.findOne({ originalId: userId });
+
+  if (hasPicture) {
+    avatar = hasPicture.url;
+  }
+
+  return avatar;
+}
 
 function walkParallelLoop(nodes, edges, item, callback) {
   ////SE FOR ARESTA
@@ -438,26 +448,6 @@ router.get('/flow/:flowId', async (req, res) => {
   }
 });
 
-//List all to flow accountable's
-router.get('/list/accountable', checkPermission, async (req, res) => {
-  try {
-    const user = req.user;
-    const tenantId = user.tenantId ? user.tenantId : user._id;
-
-    const query =
-      user.rank === 'gerente'
-        ? { $or: [{ _id: tenantId }, { tenantId }, { _id: user._id }] }
-        : { $or: [{ tenantId }] };
-
-    const usersByTenant = await User.find(query);
-
-    res.status(200).send({ usersByTenant });
-  } catch (err) {
-    const code = err.code ? err.code : '412';
-    res.status(code).send({ error: err.message, code });
-  }
-});
-
 //get Files
 router.get('/files/:originalId', async (req, res) => {
   const { originalId } = req.params;
@@ -480,7 +470,15 @@ router.get('/chat/task/:refId', async (req, res) => {
       createdAt: -1,
     });
 
-    res.status(200).send({ chatLog });
+    const chatWithAvatars = await Promise.all(
+      chatLog.map(async (chat) => {
+        const avatar = await getAvatar(chat.userId);
+        const plainChat = chat.toObject({ getters: true, virtuals: true });
+        return { ...plainChat, avatarURL: avatar };
+      })
+    );
+
+    res.status(200).send({ chatLog: chatWithAvatars });
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });

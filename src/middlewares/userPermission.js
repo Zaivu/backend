@@ -5,7 +5,7 @@ module.exports = (req, res, next) => {
 
   // Check if the user's rank is 'admin' or 'manager'
   if (userRank !== 'admin' && userRank !== 'gerente') {
-    //throw exceptions.acessDenied();
+    // throw exceptions.acessDenied();
     return res.status(403).json({ message: 'Access denied.' });
   }
 

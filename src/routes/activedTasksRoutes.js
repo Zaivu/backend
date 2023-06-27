@@ -9,6 +9,7 @@ const Post = mongoose.model('Post');
 const ChatMessage = mongoose.model('ChatMessage');
 const exceptions = require('../exceptions');
 const router = express.Router();
+const checkPermission = require('../middlewares/userPermission');
 
 router.use(requireAuth);
 
@@ -49,6 +50,17 @@ function getMomentStatus(startedAt, expirationHours, status, date) {
     deadline: status === 'doing' ? deadlineDate.toMillis() : null,
     finishedAt: status === 'done' ? date : null,
   };
+}
+
+async function getAvatar(userId) {
+  let avatar = process.env.DEFAULT_PROFILE_PICTURE;
+  const hasPicture = await Post.findOne({ originalId: userId });
+
+  if (hasPicture) {
+    avatar = hasPicture.url;
+  }
+
+  return avatar;
 }
 //Paginação
 router.get('/pagination/:page', async (req, res) => {
@@ -209,17 +221,43 @@ router.get('/pagination/:page', async (req, res) => {
 });
 
 //Update task Accountable
-router.put('/accountable/:userId/:taskId', async (req, res) => {
-  const { userId, taskId } = req.params;
+router.put('/accountable/', checkPermission, async (req, res) => {
+  const { userId, taskId } = req.body;
 
   try {
     const user = await User.findOne({ _id: userId });
     const task = await ActivedNode.findOneAndUpdate(
       { _id: taskId },
-      { 'data.accountable': { userId: user._id } }
+      { 'data.accountable': { userId: user._id } },
+      { new: true }
     );
 
-    res.send({ task }).status(200);
+    const avatarURL = await getAvatar(user._id);
+
+    res
+      .send({
+        taskId: task._id,
+        accountable: { avatarURL, userId: user._id, username: user.username },
+      })
+      .status(200);
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+//Remove task Accountable
+router.delete('/accountable/:taskId', checkPermission, async (req, res) => {
+  const { taskId } = req.params;
+
+  try {
+    const task = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      { 'data.accountable': null },
+
+      { new: true }
+    );
+
+    res.send({ taskId: task._id, accountable: null }).status(200);
   } catch (err) {
     const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
