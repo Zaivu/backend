@@ -163,6 +163,20 @@ router.get('/pagination/:page', async (req, res) => {
           const files = await Post.find({ originalId: item._id });
           const chatMessages = await ChatMessage.find({ refId: item._id });
 
+          const accUser = item.data.accountable?.userId ?? null;
+
+          let accountable = null;
+          if (accUser) {
+            const user = await User.findOne({ _id: accUser });
+            const avatarURL = await getAvatar(accUser);
+
+            accountable = {
+              userId: accUser,
+              username: user.username,
+              avatarURL: avatarURL,
+            };
+          }
+
           const startedAt = item.data.startedAt;
           const hoursUntilExpiration = item.data.expiration.number;
 
@@ -191,13 +205,13 @@ router.get('/pagination/:page', async (req, res) => {
             status: item.data.status,
             description: item.data.comments,
             subtasks: item.data.subtasks,
-
             duration: item.data.expiration.number,
             moment: moment,
             flowId: item.flowId,
             projectName: currentProject.title,
             files: files.length,
             chatMessages: chatMessages.length,
+            accountable,
           };
 
           return task;
