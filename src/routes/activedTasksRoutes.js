@@ -66,7 +66,9 @@ async function getAvatar(userId) {
 router.get('/pagination/:page', async (req, res) => {
   const { page = '1' } = req.params;
   const user = req.user;
+
   const tenantId = user.tenantId ? user.tenantId : user._id;
+  const rank = user.rank;
   const {
     flowTitle = '',
     label = '',
@@ -128,6 +130,9 @@ router.get('/pagination/:page', async (req, res) => {
             type: 'task',
             'data.label': { $regex: label, $options: 'i' },
             'data.status': currentStatus,
+            ...(rank === 'colaborador' && {
+              'data.accountable.userId': user._id,
+            }),
             'data.expiration.date':
               status === 'late'
                 ? { $lt: today.toMillis() }
@@ -139,11 +144,12 @@ router.get('/pagination/:page', async (req, res) => {
             type: 'task',
             'data.label': { $regex: label, $options: 'i' },
             'data.status': currentStatus,
+            ...(rank === 'colaborador' && {
+              'data.accountable.userId': user._id,
+            }),
           },
-
       paginateOptions
     );
-
     // console.log("***********************************")
     // console.log({ queries: req.query })
     // console.log({ tasks: Pagination.docs.map(item => item = { label: item.data.label, flowId: item.flowId }) })
