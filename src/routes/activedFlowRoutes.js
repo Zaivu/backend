@@ -20,7 +20,6 @@ const checkPermission = require("../middlewares/userPermission");
 
 const Node = mongoose.model("Node");
 const Edge = mongoose.model("Edge");
-// const FlowModel = mongoose.model('FlowModel');
 
 const Post = mongoose.model("Post");
 
@@ -69,7 +68,7 @@ async function getAccountableUsers(nodes) {
 
 async function getAvatar(userId) {
   let avatar = process.env.DEFAULT_PROFILE_PICTURE;
-  const hasPicture = await Post.findOne({ originalId: userId });
+  const hasPicture = await Post.findOne({ originalId: userId, type: "avatar" });
 
   if (hasPicture) {
     avatar = hasPicture.url;
@@ -364,26 +363,17 @@ router.get("/flow/:flowId", async (req, res) => {
 
     const flow = await ActivedFlow.findOne({ _id: flowId });
 
-    let flowAccountable = flow.accountable;
-    const userAcc = flow.accountable?.userId;
+    let flowAccountable;
+    const userAcc = flow.accountable?.userId ?? null;
 
     if (userAcc) {
-      let avatarURL = process.env.DEFAULT_PROFILE_PICTURE;
-      const hasPicture = await Post.findOne({
-        originalId: userAcc,
-        type: "avatar",
-      });
-
-      const currentUser = await User.findOne({ _id: userAcc });
-
-      if (hasPicture) {
-        avatarURL = hasPicture.url;
-      }
+      const avatarURL = await getAvatar(userAcc);
 
       flowAccountable = {
-        ...flow.data.accountable,
+        _id: userAcc._id,
         avatarURL,
-        username: currentUser.username,
+        username: user.username,
+        email: user.email,
       };
     }
 
@@ -501,7 +491,15 @@ router.get("/chat/flow/:refId", async (req, res) => {
       createdAt: -1,
     });
 
-    res.status(200).send({ chatLog });
+    const chatWithAvatars = await Promise.all(
+      chatLog.map(async (chat) => {
+        const avatar = await getAvatar(chat.userId);
+        const plainChat = chat.toObject({ getters: true, virtuals: true });
+        return { ...plainChat, avatarURL: avatar };
+      })
+    );
+
+    res.status(200).send({ chatLog: chatWithAvatars });
   } catch (err) {
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
@@ -512,7 +510,9 @@ router.get("/chat/flow/:refId", async (req, res) => {
 router.post("/new", checkPermission, async (req, res) => {
   try {
     const { flowId, title, client = "", description } = req.body;
-    const { _id: tenantId } = req.user;
+
+    const user = req.user;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
 
     // const isArray = Array.isArray;
 
@@ -579,6 +579,9 @@ router.post("/new", checkPermission, async (req, res) => {
       client,
       createdAt: nowLocal.toMillis(),
       lastUpdate: nowLocal.toMillis(),
+      accountable: {
+        userId: user._id,
+      },
     };
 
     const liveModel = new ActivedFlow({ ...baseModel, default: null });
@@ -707,6 +710,8 @@ router.post("/chat/new", async (req, res) => {
   try {
     const { userId, refId, username, message, type } = req.body;
 
+    const avatarURL = await getAvatar(userId);
+
     const baseModel = {
       userId,
       refId,
@@ -722,7 +727,8 @@ router.post("/chat/new", async (req, res) => {
 
     const chatMessage = await model.save();
 
-    res.send({ chatMessage });
+    const plainChat = chatMessage.toObject({ getters: true, virtuals: true });
+    res.send({ chatMessage: { ...plainChat, avatarURL } });
   } catch (err) {
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
@@ -1099,9 +1105,6 @@ router.put("/undo", checkPermission, async (req, res) => {
 router.post("/task/subtask/new", async (req, res) => {
   try {
     const { taskId, title = "Subtarefa", checked = false } = req.body;
-
-    // const currentTask = await ActivedNode.findById({ _id: taskId });
-    // const allSubtasks = currentTask.data.subtasks;
 
     const randomId = randomUUID();
 
