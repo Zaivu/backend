@@ -30,9 +30,9 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
   await ses.sendEmail(params).promise();
 }
 
-//Validar conta
+//Validar conta | status (idle) -> status(active) e receber nova senha
 router.post('/auth/sign-up/', async (req, res) => {
-  const { username, password, email } = req.body;
+  const { password, username, email } = req.body;
 
   try {
     const salt = await bcrypt.genSalt(10);
@@ -153,13 +153,6 @@ router.post('/auth/sign-in', async (req, res) => {
       { expiresIn: secret.config.jwtRefreshLife }
     );
 
-    let userEnterprise = { username: 'none' };
-
-    if (user.rank === 'Funcionário')
-      userEnterprise = await User.findOne({
-        _id: user.tenantId,
-      });
-
     const userCopy = JSON.parse(JSON.stringify(user));
 
     delete userCopy['password'];
@@ -168,7 +161,6 @@ router.post('/auth/sign-in', async (req, res) => {
       token,
       refreshToken,
       user: userCopy,
-      enterpriseName: userEnterprise.username,
     };
 
     res.status(200).json(response);
