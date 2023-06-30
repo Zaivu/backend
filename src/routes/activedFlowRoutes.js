@@ -367,13 +367,14 @@ router.get('/flow/:flowId', async (req, res) => {
     const userAcc = flow.accountable?.userId ?? null;
 
     if (userAcc) {
+      const accUser = await User.findOne({ _id: userAcc });
       const avatarURL = await getAvatar(userAcc);
 
       flowAccountable = {
-        _id: userAcc._id,
         avatarURL,
-        username: user.username,
-        email: user.email,
+        _id: userAcc._id,
+        username: accUser.username,
+        email: accUser.email,
       };
     }
 
