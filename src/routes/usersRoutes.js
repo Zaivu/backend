@@ -311,7 +311,6 @@ router.delete('/users/:userId', checkPermission, async (req, res) => {
       { new: true }
     );
 
-    console.log(updatedUser);
     res.status(200).send({ user: updatedUser });
   } catch (err) {
     res.status(422).send(err.message);

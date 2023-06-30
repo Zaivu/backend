@@ -750,8 +750,6 @@ router.put('/accountable/', checkPermission, async (req, res) => {
 
     const avatarURL = await getAvatar(user._id);
 
-    console.log(user);
-
     res.status(200).send({
       flowId: flow._id,
       accountable: { avatarURL, userId: user._id, username: user.username },
@@ -766,8 +764,6 @@ router.delete('/accountable/:id', checkPermission, async (req, res) => {
   const { id: flowId } = req.params;
 
   try {
-    console.log(flowId);
-
     const flow = await ActivedFlow.findOneAndUpdate(
       { _id: flowId },
       { accountable: null },
