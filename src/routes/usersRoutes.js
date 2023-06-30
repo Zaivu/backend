@@ -116,8 +116,8 @@ router.get('/users/pagination/:page', async (req, res) => {
   }
 });
 
-//List all to flow accountable's
-router.get('/users/accountables', checkPermission, async (req, res) => {
+//List all to task accountable's
+router.get('/users/accountables/task', checkPermission, async (req, res) => {
   try {
     const user = req.user;
     const tenantId = user.tenantId ? user.tenantId : user._id;
@@ -126,9 +126,51 @@ router.get('/users/accountables', checkPermission, async (req, res) => {
       user.rank === 'gerente'
         ? {
             $or: [{ tenantId }, { _id: user._id }],
-            $and: [{ isDeleted: false }],
+            $and: [{ isDeleted: false, status: 'active' }],
           }
-        : { $or: [{ _id: tenantId }, { tenantId }, { isDeleted: false }] };
+        : {
+            $or: [{ tenantId }, { _id: tenantId }],
+            $and: [{ isDeleted: false, status: 'active' }],
+          };
+
+    const usersByTenant = await User.find(query).select('-password');
+
+    const usersWithAvatars = await Promise.all(
+      usersByTenant.map(async (user) => {
+        const avatar = await getAvatar(user._id);
+        const plainUser = user.toObject({ getters: true, virtuals: true });
+        return { ...plainUser, avatarURL: avatar };
+      })
+    );
+
+    res.status(200).send({ usersByTenant: usersWithAvatars });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+//List all to flow accountable's
+router.get('/users/accountables/flow', checkPermission, async (req, res) => {
+  try {
+    const user = req.user;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
+
+    const query =
+      user.rank === 'gerente'
+        ? {
+            $or: [{ tenantId }, { _id: user._id }],
+            $and: [{ isDeleted: false, status: 'active', rank: 'gerente' }],
+          }
+        : {
+            $or: [{ tenantId }, { _id: tenantId }],
+            $and: [
+              {
+                isDeleted: false,
+                status: 'active',
+                rank: { $ne: 'colaborador' },
+              },
+            ],
+          };
 
     const usersByTenant = await User.find(query).select('-password');
 

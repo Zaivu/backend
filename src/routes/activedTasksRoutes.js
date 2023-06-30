@@ -242,7 +242,7 @@ router.get('/pagination/:page', async (req, res) => {
 
 //Update task Accountable
 router.put('/accountable/', checkPermission, async (req, res) => {
-  const { userId, taskId } = req.body;
+  const { userId, id: taskId } = req.body;
 
   try {
     const user = await User.findOne({ _id: userId });
@@ -266,8 +266,8 @@ router.put('/accountable/', checkPermission, async (req, res) => {
   }
 });
 //Remove task Accountable
-router.delete('/accountable/:taskId', checkPermission, async (req, res) => {
-  const { taskId } = req.params;
+router.delete('/accountable/:id', checkPermission, async (req, res) => {
+  const { id: taskId } = req.params;
 
   try {
     const task = await ActivedNode.findOneAndUpdate(
