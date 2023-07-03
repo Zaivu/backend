@@ -752,7 +752,7 @@ router.put('/accountable/', checkPermission, async (req, res) => {
 
     res.status(200).send({
       flowId: flow._id,
-      accountable: { avatarURL, userId: user._id, username: user.username },
+      accountable: { avatarURL, userId: user._id, username: user.username, email: user.email },
     });
   } catch (err) {
     const code = err.code ? err.code : '412';
