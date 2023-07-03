@@ -752,7 +752,12 @@ router.put('/accountable/', checkPermission, async (req, res) => {
 
     res.status(200).send({
       flowId: flow._id,
-      accountable: { avatarURL, userId: user._id, username: user.username, email: user.email },
+      accountable: {
+        avatarURL,
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+      },
     });
   } catch (err) {
     const code = err.code ? err.code : '412';
@@ -778,8 +783,11 @@ router.delete('/accountable/:id', checkPermission, async (req, res) => {
 });
 
 //Confirm task | conditional option
+//! Rota será refeita
 router.put('/node/confirm', async (req, res) => {
   const { flowId, taskId, edgeId } = req.body;
+
+  const user = req.user;
 
   const nowLocal = DateTime.now();
 
@@ -804,12 +812,18 @@ router.put('/node/confirm', async (req, res) => {
 
     //Tarefa que será setada como 'done'
     if (node.type === 'task') {
+      //const userAcc = flow.accountable?.userId ?? null;
+
       taskUpdated = await ActivedNode.findOneAndUpdate(
         { _id: taskId },
         {
           $set: {
             'data.status': 'done',
             'data.finishedAt': nowLocal.toMillis(),
+            'data.finishedBy': {
+              userId: user._id,
+            },
+
             //Se ela expirou, mas verificar a real necessidade dessa parte
             'data.expired':
               moment(node.data.startedAt)
@@ -1041,7 +1055,13 @@ router.put('/node/confirm', async (req, res) => {
     if (newStatus[0] === 'finished') {
       await ActivedFlow.findOneAndUpdate(
         { _id: flowId },
-        { status: newStatus, finishedAt: nowLocal }
+        {
+          status: newStatus,
+          finishedAt: nowLocal,
+          finishedBy: {
+            userId: user._id,
+          },
+        }
       );
     } else {
       await ActivedFlow.findOneAndUpdate(
