@@ -812,8 +812,6 @@ router.put('/node/confirm', async (req, res) => {
 
     //Tarefa que será setada como 'done'
     if (node.type === 'task') {
-      //const userAcc = flow.accountable?.userId ?? null;
-
       taskUpdated = await ActivedNode.findOneAndUpdate(
         { _id: taskId },
         {
@@ -823,7 +821,6 @@ router.put('/node/confirm', async (req, res) => {
             'data.finishedBy': {
               userId: user._id,
             },
-
             //Se ela expirou, mas verificar a real necessidade dessa parte
             'data.expired':
               moment(node.data.startedAt)
@@ -1072,6 +1069,32 @@ router.put('/node/confirm', async (req, res) => {
 
     const activedFlow = await ActivedFlow.findById(flowId);
     const newNodes = await ActivedNode.find({ flowId: flowId });
+
+    const newNodesWithAvatars = await Promise.all(
+      newNodes.map(async (item) => {
+        if (item.type === 'task') {
+          const userId = item.data.accountable?.userId ?? null;
+
+          if (userId) {
+            const user = await User.findOne({ _id: userId });
+            const avatarURL = await getAvatar(userId);
+
+            const accountable = {
+              ...item.data.accountable,
+              avatarURL,
+              username: user.username,
+            };
+            const node = item.toObject({ getters: true, virtuals: true });
+            return { ...node, data: { ...item.data, accountable } };
+          }
+
+          return item;
+        } else {
+          return item;
+        }
+      })
+    );
+
     const newEdges = await ActivedEdge.find({ flowId: flowId });
 
     newStatus = [];
@@ -1087,7 +1110,7 @@ router.put('/node/confirm', async (req, res) => {
       tenantId: activedFlow.tenantId,
       client: activedFlow.client,
       lastState: activedFlow.lastState,
-      elements: [...newNodes, ...newEdges],
+      elements: [...newNodesWithAvatars, ...newEdges],
     };
 
     res.status(200).json({
@@ -1125,6 +1148,31 @@ router.put('/undo', checkPermission, async (req, res) => {
     const nodes = await ActivedNode.find({ flowId });
     const edges = await ActivedEdge.find({ flowId });
 
+    const newNodesWithAvatars = await Promise.all(
+      nodes.map(async (item) => {
+        if (item.type === 'task') {
+          const userId = item.data.accountable?.userId ?? null;
+
+          if (userId) {
+            const user = await User.findOne({ _id: userId });
+            const avatarURL = await getAvatar(userId);
+
+            const accountable = {
+              ...item.data.accountable,
+              avatarURL,
+              username: user.username,
+            };
+            const node = item.toObject({ getters: true, virtuals: true });
+            return { ...node, data: { ...item.data, accountable } };
+          }
+
+          return item;
+        } else {
+          return item;
+        }
+      })
+    );
+
     res.send({
       flow: {
         _id: newFlow._id,
@@ -1137,7 +1185,7 @@ router.put('/undo', checkPermission, async (req, res) => {
         tenantId: newFlow.tenantId,
         client: newFlow.client,
         lastState: newFlow.lastState,
-        elements: [...nodes, ...edges],
+        elements: [...newNodesWithAvatars, ...edges],
       },
     });
   } catch (err) {
