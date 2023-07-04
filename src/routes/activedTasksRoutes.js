@@ -76,6 +76,7 @@ router.get('/pagination/:page', async (req, res) => {
     alpha = false,
     creation = false,
     status = 'doing', // 'doing' || 'late' || 'pending || done'
+    tasksACC = true,
   } = req.query;
 
   try {
@@ -83,6 +84,7 @@ router.get('/pagination/:page', async (req, res) => {
 
     const isAlpha = alpha === 'true'; //Ordem do alfabeto
     const isCreation = creation === 'true'; //Ordem de Criação
+    const isTasksACC = tasksACC === 'true';
     const isStatusException =
       status === 'doing' ||
       status === 'late' ||
@@ -122,37 +124,30 @@ router.get('/pagination/:page', async (req, res) => {
     const currentStatus =
       status === 'late' || status === 'doing' ? 'doing' : status;
 
-    const Pagination = await ActivedNode.paginate(
-      currentStatus === 'doing'
-        ? {
-            tenantId,
-            flowId: ids,
-            type: 'task',
-            'data.label': { $regex: label, $options: 'i' },
-            'data.status': currentStatus,
-            ...(rank === 'colaborador' && {
-              'data.accountable.userId': user._id,
-            }),
-            'data.expiration.date':
-              status === 'late'
-                ? { $lt: today.toMillis() }
-                : { $gt: today.toMillis() },
-          }
-        : {
-            tenantId,
-            flowId: ids,
-            type: 'task',
-            'data.label': { $regex: label, $options: 'i' },
-            'data.status': currentStatus,
-            ...(rank === 'colaborador' && {
-              'data.accountable.userId': user._id,
-            }),
-          },
-      paginateOptions
-    );
-    // console.log("***********************************")
-    // console.log({ queries: req.query })
-    // console.log({ tasks: Pagination.docs.map(item => item = { label: item.data.label, flowId: item.flowId }) })
+    const query = {
+      tenantId,
+      flowId: ids,
+      type: 'task',
+      'data.label': { $regex: label, $options: 'i' },
+      'data.status': currentStatus,
+    };
+
+    if (currentStatus === 'doing') {
+      query['data.expiration.date'] =
+        status === 'late'
+          ? { $lt: today.toMillis() }
+          : { $gt: today.toMillis() };
+
+      if (rank === 'colaborador' || isTasksACC) {
+        query['data.accountable.userId'] = user._id;
+      }
+    } else {
+      if (rank === 'colaborador' || isTasksACC) {
+        query['data.accountable.userId'] = user._id;
+      }
+    }
+
+    const Pagination = await ActivedNode.paginate(query, paginateOptions);
 
     const taskPagination = await Promise.all(
       Pagination.docs.map(async (item) => {

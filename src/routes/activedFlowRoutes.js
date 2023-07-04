@@ -752,7 +752,12 @@ router.put('/accountable/', checkPermission, async (req, res) => {
 
     res.status(200).send({
       flowId: flow._id,
-      accountable: { avatarURL, userId: user._id, username: user.username },
+      accountable: {
+        avatarURL,
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+      },
     });
   } catch (err) {
     const code = err.code ? err.code : '412';
@@ -778,8 +783,11 @@ router.delete('/accountable/:id', checkPermission, async (req, res) => {
 });
 
 //Confirm task | conditional option
+//! Rota será refeita
 router.put('/node/confirm', async (req, res) => {
   const { flowId, taskId, edgeId } = req.body;
+
+  const user = req.user;
 
   const nowLocal = DateTime.now();
 
@@ -810,6 +818,9 @@ router.put('/node/confirm', async (req, res) => {
           $set: {
             'data.status': 'done',
             'data.finishedAt': nowLocal.toMillis(),
+            'data.finishedBy': {
+              userId: user._id,
+            },
             //Se ela expirou, mas verificar a real necessidade dessa parte
             'data.expired':
               moment(node.data.startedAt)
@@ -1041,7 +1052,13 @@ router.put('/node/confirm', async (req, res) => {
     if (newStatus[0] === 'finished') {
       await ActivedFlow.findOneAndUpdate(
         { _id: flowId },
-        { status: newStatus, finishedAt: nowLocal }
+        {
+          status: newStatus,
+          finishedAt: nowLocal,
+          finishedBy: {
+            userId: user._id,
+          },
+        }
       );
     } else {
       await ActivedFlow.findOneAndUpdate(
@@ -1052,6 +1069,32 @@ router.put('/node/confirm', async (req, res) => {
 
     const activedFlow = await ActivedFlow.findById(flowId);
     const newNodes = await ActivedNode.find({ flowId: flowId });
+
+    const newNodesWithAvatars = await Promise.all(
+      newNodes.map(async (item) => {
+        if (item.type === 'task') {
+          const userId = item.data.accountable?.userId ?? null;
+
+          if (userId) {
+            const user = await User.findOne({ _id: userId });
+            const avatarURL = await getAvatar(userId);
+
+            const accountable = {
+              ...item.data.accountable,
+              avatarURL,
+              username: user.username,
+            };
+            const node = item.toObject({ getters: true, virtuals: true });
+            return { ...node, data: { ...item.data, accountable } };
+          }
+
+          return item;
+        } else {
+          return item;
+        }
+      })
+    );
+
     const newEdges = await ActivedEdge.find({ flowId: flowId });
 
     newStatus = [];
@@ -1067,7 +1110,7 @@ router.put('/node/confirm', async (req, res) => {
       tenantId: activedFlow.tenantId,
       client: activedFlow.client,
       lastState: activedFlow.lastState,
-      elements: [...newNodes, ...newEdges],
+      elements: [...newNodesWithAvatars, ...newEdges],
     };
 
     res.status(200).json({
@@ -1105,6 +1148,31 @@ router.put('/undo', checkPermission, async (req, res) => {
     const nodes = await ActivedNode.find({ flowId });
     const edges = await ActivedEdge.find({ flowId });
 
+    const newNodesWithAvatars = await Promise.all(
+      nodes.map(async (item) => {
+        if (item.type === 'task') {
+          const userId = item.data.accountable?.userId ?? null;
+
+          if (userId) {
+            const user = await User.findOne({ _id: userId });
+            const avatarURL = await getAvatar(userId);
+
+            const accountable = {
+              ...item.data.accountable,
+              avatarURL,
+              username: user.username,
+            };
+            const node = item.toObject({ getters: true, virtuals: true });
+            return { ...node, data: { ...item.data, accountable } };
+          }
+
+          return item;
+        } else {
+          return item;
+        }
+      })
+    );
+
     res.send({
       flow: {
         _id: newFlow._id,
@@ -1117,7 +1185,7 @@ router.put('/undo', checkPermission, async (req, res) => {
         tenantId: newFlow.tenantId,
         client: newFlow.client,
         lastState: newFlow.lastState,
-        elements: [...nodes, ...edges],
+        elements: [...newNodesWithAvatars, ...edges],
       },
     });
   } catch (err) {

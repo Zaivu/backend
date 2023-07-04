@@ -346,7 +346,7 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
 });
 
 //? Part de envio de link
-//Enviar link de registro
+//Cria usuário e envia link de registro
 router.put("/users/send-register-link", async (req, res) => {
   const { name, email, tenantId, rank } = req.body;
 
