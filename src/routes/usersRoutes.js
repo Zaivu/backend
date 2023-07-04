@@ -311,7 +311,7 @@ router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
   });
 });
 
-//Deletar usuário colab
+//Deletar usuário com Restições
 router.delete("/users/:userId", checkPermission, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -324,6 +324,7 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
 
     //Caso o usuário n seja admin e não seja a relação gerente -> colaborador
     // ou o id do usuário pra deletar seja o mesmo do logado
+    //! Currently this is Active with a Admin
     if (
       (thisUser.rank !== "admin" &&
         !(thisUser.rank === "gerente" && toDelete.rank === "colaborador")) ||
