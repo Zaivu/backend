@@ -64,13 +64,14 @@ router.get("/users/pagination/:page", async (req, res) => {
   const { page = "1" } = req.params;
   const user = req.user;
   const tenantId = user.tenantId ? user.tenantId : user._id;
+  const { userSearch = "" } = req.query;
 
   try {
     // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
 
     const paginateOptions = {
       page,
-      limit: 5,
+      limit: 4,
     };
 
     const Pagination = await User.paginate(
@@ -79,7 +80,9 @@ router.get("/users/pagination/:page", async (req, res) => {
           { $or: [{ _id: tenantId }, { tenantId }, { _id: user._id }] },
           { isDeleted: { $ne: true } },
         ],
+        username: { $regex: userSearch, $options: "i" },
       },
+
       paginateOptions
     );
 
@@ -349,60 +352,72 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
 router.put("/users/send-register-link", async (req, res) => {
   const { name, email, tenantId, rank } = req.body;
 
-  const enterpriseUser = await User.findById(tenantId);
+  try {
+    const enterpriseUser = await User.findById(tenantId);
 
-  if (await User.findOne({ email })) {
-    res.send({ error: "Email já cadastrado" });
-  } else {
-    // const token = await generateToken();
-    const token2 = await generateToken();
+    if (await User.findOne({ email })) {
+      res.send({ error: "Email já cadastrado" });
+    } else {
+      // const token = await generateToken();
+      const token2 = await generateToken();
 
-    const user = new User({
-      username: name,
-      password: "inactive",
-      tenantId: tenantId,
-      rank: rank,
-      email: email,
-      resetToken: token2,
-      expireToken: Date.now() + 3600000 * 48,
-      status: "pending",
-    });
-    await user.save();
+      const user = new User({
+        username: name,
+        password: "inactive",
+        tenantId: tenantId,
+        enterpriseName: enterpriseUser.enterpriseName,
+        rank: rank,
+        email: email,
+        resetToken: token2,
+        expireToken: Date.now() + 3600000 * 48,
+        status: "pending",
+      });
+      await user.save();
 
-    sendEmail(
-      process.env.DEFAULT_SUPPORT_EMAIL,
-      email,
-      `Zaivu: Olá ${name}, Bem vindo à ${enterpriseUser.enterpriseName}!`,
-      `Olá ${name}, Bem vindo à ${enterpriseUser.enterpriseName}! Segue abaixo um link de cadastro que irá expirar em 48 horas: <a href="${process.env.APP_URL}/newaccount/${token2}">Clique aqui</a>`
-    );
+      sendEmail(
+        process.env.DEFAULT_SUPPORT_EMAIL,
+        email,
+        `Zaivu: Olá ${name}, Bem vindo à ${enterpriseUser.enterpriseName}!`,
+        `Olá ${name}, Bem vindo à ${enterpriseUser.enterpriseName}! Segue abaixo um link de cadastro que irá expirar em 48 horas: <a href="${process.env.APP_URL}/newaccount/${token2}">Clique aqui</a>`
+      );
 
-    let newUser = JSON.parse(JSON.stringify(user));
-    delete newUser["password"];
+      let newUser = JSON.parse(JSON.stringify(user));
+      delete newUser["password"];
 
-    res.send({ user: newUser });
+      res.status(200).send({ user: newUser });
+    }
+  } catch (err) {
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
   }
 });
 
 //Reenviar link de email
 router.put("/users/resend-email", async (req, res) => {
-  console.log("Reenviar link de email");
+  console.log("Backend reached, Resend-email called!");
   const { id } = req.body;
-  const token = await generateToken();
 
-  const user = await User.findByIdAndUpdate(id, {
-    resetToken: token,
-    expireToken: Date.now() + 3600000 * 48,
-  });
-  const enterpriseUser = await User.findById(user.tenantId);
+  try {
+    const token = await generateToken();
 
-  sendEmail(
-    process.env.DEFAULT_SUPPORT_EMAIL,
-    user.email,
-    `Zaivu: Olá ${user.username}, Bem vindo à ${enterpriseUser.enterpriseName}!`,
-    `Olá ${user.username}, Bem vindo à ${enterpriseUser.enterpriseName}! Segue abaixo um link de cadastro que irá expirar em 48 horas: <a href="${process.env.APP_URL}/newaccount/${token}">Clique aqui</a>`
-  );
+    const user = await User.findByIdAndUpdate(id, {
+      resetToken: token,
+      expireToken: Date.now() + 3600000 * 48,
+    });
+    const enterpriseUser = await User.findById(user.tenantId);
 
-  res.send("Feito");
+    sendEmail(
+      process.env.DEFAULT_SUPPORT_EMAIL,
+      user.email,
+      `Zaivu: Olá ${user.username}, Bem vindo à ${enterpriseUser.enterpriseName}!`,
+      `Olá ${user.username}, Bem vindo à ${enterpriseUser.enterpriseName}! Segue abaixo um link de cadastro que irá expirar em 48 horas: <a href="${process.env.APP_URL}/newaccount/${token}">Clique aqui</a>`
+    );
+
+    res.status(200).send({ msg: "ok" });
+  } catch (err) {
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
+  }
 });
 
 module.exports = router;
