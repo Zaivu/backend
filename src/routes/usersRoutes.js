@@ -337,7 +337,6 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
       { isDeleted: true },
       { new: true }
     );
-    console.log({ updatedUser });
 
     res.status(200).send({ user: updatedUser });
   } catch (err) {
@@ -386,8 +385,8 @@ router.put("/users/send-register-link", async (req, res) => {
 
 //Reenviar link de email
 router.put("/users/resend-email", async (req, res) => {
+  console.log("Reenviar link de email");
   const { id } = req.body;
-
   const token = await generateToken();
 
   const user = await User.findByIdAndUpdate(id, {
