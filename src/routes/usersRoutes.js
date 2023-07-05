@@ -313,8 +313,8 @@ router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
 
 //Deletar usuário com Restições
 router.delete("/users/:userId", checkPermission, async (req, res) => {
+  const userId = req.body.userId;
   try {
-    const { userId } = req.params;
     const thisUser = req.user;
 
     const toDelete = await User.findOne({
@@ -324,7 +324,6 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
 
     //Caso o usuário n seja admin e não seja a relação gerente -> colaborador
     // ou o id do usuário pra deletar seja o mesmo do logado
-    //! Currently this is Active with a Admin
     if (
       (thisUser.rank !== "admin" &&
         !(thisUser.rank === "gerente" && toDelete.rank === "colaborador")) ||
@@ -338,6 +337,7 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
       { isDeleted: true },
       { new: true }
     );
+    console.log({ updatedUser });
 
     res.status(200).send({ user: updatedUser });
   } catch (err) {
