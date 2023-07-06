@@ -1,15 +1,15 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const User = mongoose.model("User");
-const multer = require("multer");
-const Post = mongoose.model("Post");
-const requireAuth = require("../middlewares/requireAuth");
+const express = require('express');
+const mongoose = require('mongoose');
+const User = mongoose.model('User');
+const multer = require('multer');
+const Post = mongoose.model('Post');
+const requireAuth = require('../middlewares/requireAuth');
 const router = express.Router();
-const multerConfig = require("../config/multer");
-const crypto = require("crypto");
-const AWS = require("aws-sdk");
-const checkPermission = require("../middlewares/userPermission");
-const exceptions = require("../exceptions");
+const multerConfig = require('../config/multer');
+const crypto = require('crypto');
+const AWS = require('aws-sdk');
+const checkPermission = require('../middlewares/userPermission');
+const exceptions = require('../exceptions');
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 router.use(requireAuth);
 
@@ -20,9 +20,9 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
     Content: {
       Simple: {
         Body: {
-          Html: { Data: body, Charset: "UTF-8" }, //ISO-8859-1
+          Html: { Data: body, Charset: 'UTF-8' }, //ISO-8859-1
         },
-        Subject: { Data: subject, Charset: "UTF-8" }, //ISO-8859-1
+        Subject: { Data: subject, Charset: 'UTF-8' }, //ISO-8859-1
       },
     },
     Destination: { ToAddresses: [toAddress] },
@@ -38,12 +38,12 @@ async function generateToken() {
   const buffer = await new Promise((resolve, reject) => {
     crypto.randomBytes(256, function (ex, buffer) {
       if (ex) {
-        reject("error generating token");
+        reject('error generating token');
       }
       resolve(buffer);
     });
   });
-  const token = crypto.createHash("sha1").update(buffer).digest("hex");
+  const token = crypto.createHash('sha1').update(buffer).digest('hex');
 
   return token;
 }
@@ -60,11 +60,11 @@ async function getAvatar(userId) {
 }
 
 //Pagination Members
-router.get("/users/pagination/:page", async (req, res) => {
-  const { page = "1" } = req.params;
+router.get('/users/pagination/:page', async (req, res) => {
+  const { page = '1' } = req.params;
   const user = req.user;
   const tenantId = user.tenantId ? user.tenantId : user._id;
-  const { userSearch = "" } = req.query;
+  const { userSearch = '' } = req.query;
 
   try {
     // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
@@ -80,7 +80,7 @@ router.get("/users/pagination/:page", async (req, res) => {
           { $or: [{ _id: tenantId }, { tenantId }, { _id: user._id }] },
           { isDeleted: { $ne: true } },
         ],
-        username: { $regex: userSearch, $options: "i" },
+        username: { $regex: userSearch, $options: 'i' },
       },
 
       paginateOptions
@@ -114,29 +114,29 @@ router.get("/users/pagination/:page", async (req, res) => {
     res.send({ users: filtering, pages: totalPages });
   } catch (err) {
     console.log(err);
-    const code = err.code ? err.code : "412";
+    const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
 });
 
 //List all to task accountable's
-router.get("/users/accountables/task", checkPermission, async (req, res) => {
+router.get('/users/accountables/task', checkPermission, async (req, res) => {
   try {
     const user = req.user;
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
     const query =
-      user.rank === "gerente"
+      user.rank === 'gerente'
         ? {
             $or: [{ tenantId }, { _id: user._id }],
-            $and: [{ isDeleted: false, status: "active" }],
+            $and: [{ isDeleted: false, status: 'active' }],
           }
         : {
             $or: [{ tenantId }, { _id: tenantId }],
-            $and: [{ isDeleted: false, status: "active" }],
+            $and: [{ isDeleted: false, status: 'active' }],
           };
 
-    const usersByTenant = await User.find(query).select("-password");
+    const usersByTenant = await User.find(query).select('-password');
 
     const usersWithAvatars = await Promise.all(
       usersByTenant.map(async (user) => {
@@ -148,34 +148,34 @@ router.get("/users/accountables/task", checkPermission, async (req, res) => {
 
     res.status(200).send({ usersByTenant: usersWithAvatars });
   } catch (err) {
-    const code = err.code ? err.code : "412";
+    const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
 });
 //List all to flow accountable's
-router.get("/users/accountables/flow", checkPermission, async (req, res) => {
+router.get('/users/accountables/flow', checkPermission, async (req, res) => {
   try {
     const user = req.user;
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
     const query =
-      user.rank === "gerente"
+      user.rank === 'gerente'
         ? {
             $or: [{ tenantId }, { _id: user._id }],
-            $and: [{ isDeleted: false, status: "active", rank: "gerente" }],
+            $and: [{ isDeleted: false, status: 'active', rank: 'gerente' }],
           }
         : {
             $or: [{ tenantId }, { _id: tenantId }],
             $and: [
               {
                 isDeleted: false,
-                status: "active",
-                rank: { $ne: "colaborador" },
+                status: 'active',
+                rank: { $ne: 'colaborador' },
               },
             ],
           };
 
-    const usersByTenant = await User.find(query).select("-password");
+    const usersByTenant = await User.find(query).select('-password');
 
     const usersWithAvatars = await Promise.all(
       usersByTenant.map(async (user) => {
@@ -187,13 +187,13 @@ router.get("/users/accountables/flow", checkPermission, async (req, res) => {
 
     res.status(200).send({ usersByTenant: usersWithAvatars });
   } catch (err) {
-    const code = err.code ? err.code : "412";
+    const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
 });
 
 //Fetch avatar
-router.get("/users/picture/", async (req, res) => {
+router.get('/users/picture/', async (req, res) => {
   var picture;
 
   const { _id: originalId } = req.user;
@@ -210,7 +210,7 @@ router.get("/users/picture/", async (req, res) => {
 });
 
 //Melhorar rank de usuário colab
-router.put("/users/rank/upgrade/", checkPermission, async (req, res) => {
+router.put('/users/rank/upgrade/', checkPermission, async (req, res) => {
   const { userId } = req.body;
   try {
     const user = await User.findOne({ _id: userId });
@@ -219,25 +219,25 @@ router.put("/users/rank/upgrade/", checkPermission, async (req, res) => {
       throw exceptions.entityNotFound();
     }
 
-    if (user.rank !== "colaborador") {
-      throw new Error("Only Colaborators can be promoted");
+    if (user.rank !== 'colaborador') {
+      throw new Error('Only Colaborators can be promoted');
     }
     const update = await User.findOneAndUpdate(
       { _id: userId },
-      { $set: { rank: "gerente" } },
+      { $set: { rank: 'gerente' } },
       { new: true }
     );
 
     res.status(200).send({ user: update });
   } catch (err) {
     console.log(err);
-    const code = err.code ? err.code : "412";
+    const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
 });
 
 //Reduzir rank de usuário gerente
-router.put("/users/rank/downgrade/", checkPermission, async (req, res) => {
+router.put('/users/rank/downgrade/', checkPermission, async (req, res) => {
   const { userId } = req.body;
   try {
     const user = await User.findOne({ _id: userId });
@@ -246,31 +246,31 @@ router.put("/users/rank/downgrade/", checkPermission, async (req, res) => {
       throw exceptions.entityNotFound();
     }
 
-    if (user.rank !== "gerente") {
-      throw new Error("Only Managers can be Demoted");
+    if (user.rank !== 'gerente') {
+      throw new Error('Only Managers can be Demoted');
     }
 
     const update = await User.findOneAndUpdate(
       { _id: userId },
-      { $set: { rank: "colaborador" } },
+      { $set: { rank: 'colaborador' } },
       { new: true }
     );
 
     res.status(200).send({ user: update });
   } catch (err) {
     console.log(err);
-    const code = err.code ? err.code : "412";
+    const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
 });
 
 //Adicionar avatar
 router.put(
-  "/users/profile/picture/new",
-  multer(multerConfig).single("file"),
+  '/users/profile/picture/new',
+  multer(multerConfig).single('file'),
   async (req, res) => {
     try {
-      const { originalname: name, size, key, location: url = "" } = req.file;
+      const { originalname: name, size, key, location: url = '' } = req.file;
       const { _id: originalId, tenantId } = req.user;
 
       const tenant = tenantId ? tenantId : originalId;
@@ -288,12 +288,12 @@ router.put(
         url,
         originalId,
         tenantId: tenant,
-        type: "avatar",
+        type: 'avatar',
       });
 
       res.send(post).status(200);
     } catch (err) {
-      const code = err.code ? err.code : "412";
+      const code = err.code ? err.code : '412';
 
       res.status(code).send({ error: err.message, code });
     }
@@ -301,7 +301,7 @@ router.put(
 );
 
 //Deletar foto de avatar
-router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
+router.delete('/users/profile/picture/delete/:originalId', async (req, res) => {
   const { originalId } = req.params;
   const post = await Post.findOne({ originalId });
 
@@ -315,9 +315,9 @@ router.delete("/users/profile/picture/delete/:originalId", async (req, res) => {
 });
 
 //Deletar usuário com Restições
-router.delete("/users/:userId", checkPermission, async (req, res) => {
-  const userId = req.body.userId;
+router.delete('/users/:userId', checkPermission, async (req, res) => {
   try {
+    const userId = req.body.userId;
     const thisUser = req.user;
 
     const toDelete = await User.findOne({
@@ -328,8 +328,8 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
     //Caso o usuário n seja admin e não seja a relação gerente -> colaborador
     // ou o id do usuário pra deletar seja o mesmo do logado
     if (
-      (thisUser.rank !== "admin" &&
-        !(thisUser.rank === "gerente" && toDelete.rank === "colaborador")) ||
+      (thisUser.rank !== 'admin' &&
+        !(thisUser.rank === 'gerente' && toDelete.rank === 'colaborador')) ||
       thisUser._id === userId
     ) {
       throw exceptions.unprocessableEntity();
@@ -341,6 +341,9 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
       { new: true }
     );
 
+    //Buscar por todas as tarefas que task.data.accountable.userId ===toDelete._id
+    //accountalbe = null
+
     res.status(200).send({ user: updatedUser });
   } catch (err) {
     res.status(422).send(err.message);
@@ -349,28 +352,30 @@ router.delete("/users/:userId", checkPermission, async (req, res) => {
 
 //? Part de envio de link
 //Cria usuário e envia link de registro
-router.put("/users/send-register-link", async (req, res) => {
-  const { name, email, tenantId, rank } = req.body;
+router.put('/users/send-register-link', async (req, res) => {
+  const { name, email, rank } = req.body;
 
   try {
+    const user = req.user;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
+
     const enterpriseUser = await User.findById(tenantId);
 
     if (await User.findOne({ email })) {
-      res.send({ error: "Email já cadastrado" });
+      res.send({ error: 'Email já cadastrado' });
     } else {
       // const token = await generateToken();
       const token2 = await generateToken();
 
       const user = new User({
         username: name,
-        password: "inactive",
+        password: 'inactive',
         tenantId: tenantId,
         enterpriseName: enterpriseUser.enterpriseName,
         rank: rank,
         email: email,
         resetToken: token2,
         expireToken: Date.now() + 3600000 * 48,
-        status: "pending",
       });
       await user.save();
 
@@ -382,19 +387,19 @@ router.put("/users/send-register-link", async (req, res) => {
       );
 
       let newUser = JSON.parse(JSON.stringify(user));
-      delete newUser["password"];
+      delete newUser['password'];
 
       res.status(200).send({ user: newUser });
     }
   } catch (err) {
-    const code = err.code ? err.code : "412";
+    const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
 });
 
 //Reenviar link de email
-router.put("/users/resend-email", async (req, res) => {
-  console.log("Backend reached, Resend-email called!");
+router.put('/users/resend-email', async (req, res) => {
+  console.log('Backend reached, Resend-email called!');
   const { id } = req.body;
 
   try {
@@ -413,9 +418,9 @@ router.put("/users/resend-email", async (req, res) => {
       `Olá ${user.username}, Bem vindo à ${enterpriseUser.enterpriseName}! Segue abaixo um link de cadastro que irá expirar em 48 horas: <a href="${process.env.APP_URL}/newaccount/${token}">Clique aqui</a>`
     );
 
-    res.status(200).send({ msg: "ok" });
+    res.status(200).send({ msg: 'ok' });
   } catch (err) {
-    const code = err.code ? err.code : "412";
+    const code = err.code ? err.code : '412';
     res.status(code).send({ error: err.message, code });
   }
 });

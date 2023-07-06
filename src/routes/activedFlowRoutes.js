@@ -372,7 +372,7 @@ router.get('/flow/:flowId', async (req, res) => {
 
       flowAccountable = {
         avatarURL,
-        _id: userAcc._id,
+        _id: userAcc?._id,
         username: accUser.username,
         email: accUser.email,
       };
@@ -401,7 +401,7 @@ router.get('/flow/:flowId', async (req, res) => {
             });
 
             const currentUser = await User.findOne({ _id: userId });
-
+            console.log({ userId, currentUser });
             if (hasPicture) {
               avatarURL = hasPicture.url;
             }

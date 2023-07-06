@@ -55,13 +55,14 @@ router.post('/auth/sign-up/', async (req, res) => {
 
     delete userCopy['password'];
 
-    res.send({ user: userCopy });
+    res.status(200).send({ user: userCopy });
   } catch (err) {
     return res.status(422).send(err.message);
   }
 });
 
 //create account for 'gerente' | 'colaborador'
+//! deprecated -> So acessada por insomnia / postman
 router.post('/auth/create-user/colab', async (req, res) => {
   const { username, tenantId, rank = 'gerente', password, email } = req.body;
 
@@ -206,7 +207,7 @@ router.get('/auth/validate-token/:token', async (req, res) => {
   }
 });
 
-//Resetar senha
+//?Esqueci minha senha ->Resetar senha
 router.put('/auth/reset-password-email', async (req, res) => {
   const { email } = req.body;
 
@@ -316,6 +317,7 @@ router.put('/auth/edit-email', async (req, res) => {
 });
 
 //Editar nome de empresa
+//? Somente ADMIN user
 router.put('/auth/edit-enterprise-name', async (req, res) => {
   const { enterpriseName, id } = req.body;
 
