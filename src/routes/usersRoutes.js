@@ -360,6 +360,7 @@ router.put('/users/send-register-link', async (req, res) => {
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
     const enterpriseUser = await User.findById(tenantId);
+    // ['admin', 'gerente', 'colaborador']
 
     if (await User.findOne({ email })) {
       res.send({ error: 'Email já cadastrado' });
@@ -399,7 +400,6 @@ router.put('/users/send-register-link', async (req, res) => {
 
 //Reenviar link de email
 router.put('/users/resend-email', async (req, res) => {
-  console.log('Backend reached, Resend-email called!');
   const { id } = req.body;
 
   try {
@@ -427,8 +427,16 @@ router.put('/users/resend-email', async (req, res) => {
 
 router.put('/users/update', async (req, res) => {
   const user = req.user;
-  const { username, email, enterpriseName = '' } = user;
-  const { new_username, new_email, new_enterpriseName } = req.body;
+  const {
+    username: or_username,
+    email: or_email,
+    enterpriseName: or_enterpriseName = '',
+  } = user;
+  const {
+    username: new_username,
+    email: new_email,
+    enterpriseName: new_enterpriseName,
+  } = req.body;
 
   try {
     if (!new_username || !new_email) {
@@ -436,19 +444,19 @@ router.put('/users/update', async (req, res) => {
     }
 
     const updatedAttrs = {
-      username: new_username ? new_username : username,
-      email: new_email ? new_email : email,
+      username: new_username ? new_username : or_username,
+      email: new_email ? new_email : or_email,
       ...(user.rank === 'admin' && {
         enterpriseName: new_enterpriseName
           ? new_enterpriseName
-          : enterpriseName,
+          : or_enterpriseName,
       }),
     };
     const updatedUser = await User.findByIdAndUpdate(
       { _id: user._id },
       updatedAttrs,
       { new: true }
-    );
+    ).select('-password');
 
     res.status(200).send(updatedUser);
   } catch (err) {

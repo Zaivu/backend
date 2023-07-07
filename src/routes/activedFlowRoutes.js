@@ -401,7 +401,7 @@ router.get('/flow/:flowId', async (req, res) => {
             });
 
             const currentUser = await User.findOne({ _id: userId });
-            console.log({ userId, currentUser });
+
             if (hasPicture) {
               avatarURL = hasPicture.url;
             }
