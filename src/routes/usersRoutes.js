@@ -426,4 +426,35 @@ router.put("/users/resend-email", async (req, res) => {
   }
 });
 
+router.put('/users/update', async (req, res) => {
+  const user = req.user;
+  const { username, email, enterpriseName = '' } = user;
+  const { new_username, new_email, new_enterpriseName } = req.body;
+
+  try {
+    if (!new_username || !new_email) {
+      throw new Error('Username and email are required');
+    }
+
+    const updatedAttrs = {
+      username: new_username ? new_username : username,
+      email: new_email ? new_email : email,
+      ...(user.rank === 'admin' && {
+        enterpriseName: new_enterpriseName
+          ? new_enterpriseName
+          : enterpriseName,
+      }),
+    };
+    const updatedUser = await User.findByIdAndUpdate(
+      { _id: user._id },
+      updatedAttrs,
+      { new: true }
+    );
+
+    res.status(200).send(updatedUser);
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
 module.exports = router;
