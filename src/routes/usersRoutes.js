@@ -72,6 +72,7 @@ router.get('/users/pagination/:page', async (req, res) => {
     const paginateOptions = {
       page,
       limit: 4,
+      sort: { rankNumber: 1 },
     };
 
     const Pagination = await User.paginate(
@@ -224,7 +225,7 @@ router.put('/users/rank/upgrade/', checkPermission, async (req, res) => {
     }
     const update = await User.findOneAndUpdate(
       { _id: userId },
-      { $set: { rank: 'gerente' } },
+      { $set: { rank: 'gerente', rankNumber: 2 } },
       { new: true }
     );
 
@@ -252,7 +253,7 @@ router.put('/users/rank/downgrade/', checkPermission, async (req, res) => {
 
     const update = await User.findOneAndUpdate(
       { _id: userId },
-      { $set: { rank: 'colaborador' } },
+      { $set: { rank: 'colaborador', rankNumber: 3 } },
       { new: true }
     );
 

@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
-const mongoosePaginate = require('mongoose-paginate-v2');
-const bcrypt = require('bcrypt');
+const mongoose = require("mongoose");
+const mongoosePaginate = require("mongoose-paginate-v2");
+const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -17,12 +17,17 @@ const userSchema = new mongoose.Schema({
   },
   rank: {
     type: String,
-    enum: ['admin', 'gerente', 'colaborador'],
-    default: 'colaborador',
+    enum: ["admin", "gerente", "colaborador"],
+    default: "colaborador",
+  },
+  rankNumber: {
+    type: Number,
+    enum: [1, 2, 3],
+    default: 3,
   },
   status: {
     type: String,
-    default: 'pending',
+    default: "pending",
   },
   resetToken: {
     type: String,
@@ -37,9 +42,9 @@ const userSchema = new mongoose.Schema({
   },
   tenantId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
     required: function () {
-      return this.rank === 'admin' ? false : true;
+      return this.rank === "admin" ? false : true;
     },
   },
   isDeleted: {
@@ -88,5 +93,19 @@ userSchema.methods.comparePassword = function (candidatePassword) {
   });
 };
 
+userSchema.pre("save", function (next) {
+  // Update rankNumber based on rank value
+  if (this.isModified("rank")) {
+    const rankValues = {
+      admin: 1,
+      gerente: 2,
+      colaborador: 3,
+    };
+
+    this.rankNumber = rankValues[this.rank] || rankValues.colaborador;
+  }
+
+  next();
+});
 userSchema.plugin(mongoosePaginate);
-mongoose.model('User', userSchema);
+mongoose.model("User", userSchema);
