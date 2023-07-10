@@ -7,6 +7,7 @@ const requireAuth = require('../middlewares/requireAuth');
 const router = express.Router();
 const multerConfig = require('../config/multer');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const AWS = require('aws-sdk');
 const checkPermission = require('../middlewares/userPermission');
 const exceptions = require('../exceptions');
@@ -351,7 +352,6 @@ router.delete('/users/:userId', checkPermission, async (req, res) => {
   }
 });
 
-//? Part de envio de link
 //Cria usuário e envia link de registro
 router.put('/users/send-register-link', async (req, res) => {
   const { name, email, rank } = req.body;
@@ -426,7 +426,7 @@ router.put('/users/resend-email', async (req, res) => {
   }
 });
 
-router.put('/users/update', async (req, res) => {
+router.put('/users/update/account', async (req, res) => {
   const user = req.user;
   const {
     username: or_username,
@@ -465,4 +465,38 @@ router.put('/users/update', async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
+
+router.put('/users/update/password', async (req, res) => {
+  const user = req.user;
+  const { new_password, old_password } = req.body;
+
+  try {
+    if (!new_password || !old_password) {
+      throw new Error('Password is required!');
+    }
+
+    const thisUser = await User.findOne({ email: user.email });
+
+    const isMatch = await bcrypt.compare(old_password, thisUser.password);
+
+    if (!isMatch) {
+      throw { message: 'Incorrect credentials', code: 401 };
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const newPass = await bcrypt.hash(new_password, salt);
+
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: user._id },
+      { password: newPass }
+    ).select('-password');
+
+    res.status(200).send({ updatedUser });
+  } catch (err) {
+    console.log(err);
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
 module.exports = router;
