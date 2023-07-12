@@ -260,6 +260,37 @@ router.put('/accountable/', checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
+
+//Update multiple task Accountable
+router.put('/accountable/multiple', checkPermission, async (req, res) => {
+  const { userId, tasksList } = req.body;
+
+  try {
+    const user = await User.findOne({ _id: userId });
+
+    await Promise.all(
+      tasksList.map(async (item) => {
+        const task = await ActivedNode.findOneAndUpdate(
+          { _id: item.taskId },
+          { 'data.accountable': { userId: user._id } },
+          { new: true }
+        );
+        return task;
+      })
+    );
+
+    const avatarURL = await getAvatar(user._id);
+
+    res.status(200).send({
+      list: tasksList,
+      accountable: { avatarURL, userId: user._id, username: user.username },
+    });
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
 //Remove task Accountable
 router.delete('/accountable/:id', checkPermission, async (req, res) => {
   const { id: taskId } = req.params;
