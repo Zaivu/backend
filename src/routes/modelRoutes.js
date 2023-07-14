@@ -1,21 +1,21 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const ObjectID = require('mongodb').ObjectID;
-const FlowModel = mongoose.model('FlowModel');
-const Edge = mongoose.model('Edge');
-const Node = mongoose.model('Node');
-const requireAuth = require('../middlewares/requireAuth');
-const { DateTime } = require('luxon');
-const exceptions = require('../exceptions');
+const express = require("express");
+const mongoose = require("mongoose");
+const ObjectID = require("mongodb").ObjectID;
+const FlowModel = mongoose.model("FlowModel");
+const Edge = mongoose.model("Edge");
+const Node = mongoose.model("Node");
+const requireAuth = require("../middlewares/requireAuth");
+const { DateTime } = require("luxon");
+const exceptions = require("../exceptions");
 const router = express.Router();
-const checkPermission = require('../middlewares/userPermission');
+const checkPermission = require("../middlewares/userPermission");
 
 router.use(requireAuth, checkPermission);
 
 const sortByMark = (a, b) => {
-  if (a.type === 'customMark' && b.type !== 'customMark') {
+  if (a.type === "customMark" && b.type !== "customMark") {
     return -1; // "mark" comes before other types
-  } else if (a.type !== 'customMark' && b.type === 'customMark') {
+  } else if (a.type !== "customMark" && b.type === "customMark") {
     return 1; // other types come after "mark"
   } else {
     return 0; // maintain the existing order
@@ -23,13 +23,13 @@ const sortByMark = (a, b) => {
 };
 
 // ? fetchFlows (pagination)
-router.get('/pagination/:tenantId/:page', async (req, res) => {
-  const { page = '1' } = req.params;
-  const { title = '', alpha = false, creation = false } = req.query;
+router.get("/pagination/:tenantId/:page", async (req, res) => {
+  const { page = "1" } = req.params;
+  const { title = "", alpha = false, creation = false } = req.query;
   const user = req.user;
 
-  const isAlpha = alpha === 'true'; //Ordem do alfabeto
-  const isCreation = creation === 'true'; //Ordem de Criação
+  const isAlpha = alpha === "true"; //Ordem do alfabeto
+  const isCreation = creation === "true"; //Ordem de Criação
   const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
 
   const SortedBy = isCreation
@@ -48,7 +48,12 @@ router.get('/pagination/:tenantId/:page', async (req, res) => {
     };
 
     const Pagination = await FlowModel.paginate(
-      { type: 'main', tenantId, title: { $regex: title, $options: 'i' } },
+      {
+        type: "main",
+        tenantId,
+        title: { $regex: title, $options: "i" },
+        isDeleted: false,
+      },
       paginateOptions
     );
 
@@ -72,29 +77,29 @@ router.get('/pagination/:tenantId/:page', async (req, res) => {
 
     res.send({ flows: modelFlows, pages: totalPages });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
 
     res.status(code).send({ error: err.message, code });
   }
 });
 
 // ? ListAll
-router.get('/list/', async (req, res) => {
+router.get("/list/", async (req, res) => {
   // const { tenantId } = req.params;
   const user = req.user;
   const tenantId = user.tenantId ? user.tenantId : user._id;
 
   try {
     if (!ObjectID.isValid(tenantId)) {
-      throw exceptions.unprocessableEntity('tenantId must be a valid ObjectId');
+      throw exceptions.unprocessableEntity("tenantId must be a valid ObjectId");
     }
 
     const projects = await FlowModel.find({
       tenantId,
     });
 
-    const projectType = projects.filter((item) => item.type === 'main');
-    const versionType = projects.filter((item) => item.type === 'version');
+    const projectType = projects.filter((item) => item.type === "main");
+    const versionType = projects.filter((item) => item.type === "version");
 
     const allFlowsProject = projectType.map((item) => {
       const allVersions = versionType.filter((version) => {
@@ -120,13 +125,13 @@ router.get('/list/', async (req, res) => {
 
     res.status(200).send({ projects: allFlowsProject });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 
 // ? FetchSingleFlow
-router.get('/flow/:flowId', async (req, res) => {
+router.get("/flow/:flowId", async (req, res) => {
   const { flowId } = req.params;
   const user = req.user;
   const tenantId = user.tenantId ? user.tenantId : user._id;
@@ -134,7 +139,7 @@ router.get('/flow/:flowId', async (req, res) => {
   try {
     if (!ObjectID.isValid(flowId)) {
       throw exceptions.unprocessableEntity(
-        'flowId | tenantId must be a valid ObjectID'
+        "flowId | tenantId must be a valid ObjectID"
       );
     }
 
@@ -196,13 +201,13 @@ router.get('/flow/:flowId', async (req, res) => {
     res.send({ flow: newFlow });
   } catch (err) {
     console.log(err);
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 
 // ? Novo Projeto
-router.post('/new', async (req, res) => {
+router.post("/new", async (req, res) => {
   try {
     const elements = req.body.elements;
     const { type, title } = req.body.flow;
@@ -213,11 +218,11 @@ router.post('/new', async (req, res) => {
 
     //req.body, req.params, req.user, req.query
 
-    if (!(typeof title === 'string') || !isArray(elements)) {
-      throw exceptions.unprocessableEntity('Invalid argumnt type');
+    if (!(typeof title === "string") || !isArray(elements)) {
+      throw exceptions.unprocessableEntity("Invalid argumnt type");
     }
-    if (type !== 'main') {
-      throw exceptions.unprocessableEntity('type argument must be: main');
+    if (type !== "main") {
+      throw exceptions.unprocessableEntity("type argument must be: main");
     }
 
     const nowLocal = DateTime.now();
@@ -279,13 +284,13 @@ router.post('/new', async (req, res) => {
       },
     });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 
 // ? Novo Fluxo (Versionamento)
-router.post('/new/model', async (req, res) => {
+router.post("/new/model", async (req, res) => {
   try {
     const elements = req.body.elements;
     const { type, title, parentId } = req.body.flow;
@@ -295,15 +300,15 @@ router.post('/new/model', async (req, res) => {
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
     if (
-      !(typeof title === 'string') ||
+      !(typeof title === "string") ||
       !isArray(elements) ||
       !ObjectID.isValid(parentId)
     ) {
-      throw exceptions.unprocessableEntity('Invalid argument type');
+      throw exceptions.unprocessableEntity("Invalid argument type");
     }
 
-    if (type !== 'version') {
-      throw exceptions.unprocessableEntity('type argument must be: version');
+    if (type !== "version") {
+      throw exceptions.unprocessableEntity("type argument must be: version");
     }
 
     const nowLocal = DateTime.now();
@@ -377,18 +382,18 @@ router.post('/new/model', async (req, res) => {
       },
     });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 
 // ? Copiar Projeto
-router.post('/copy', async (req, res) => {
+router.post("/copy", async (req, res) => {
   try {
     const { flowId, title } = req.body;
 
-    if (!(typeof title === 'string') || !ObjectID.isValid(flowId)) {
-      throw exceptions.unprocessableEntity('Invalid argument type');
+    if (!(typeof title === "string") || !ObjectID.isValid(flowId)) {
+      throw exceptions.unprocessableEntity("Invalid argument type");
     }
 
     //Puxar a data do fluxo a ser copiado
@@ -545,21 +550,21 @@ router.post('/copy', async (req, res) => {
       },
     });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 // ? Renomeia um fluxo qualquer
-router.put('/rename', async (req, res) => {
+router.put("/rename", async (req, res) => {
   const { title, flowId, parentId } = req.body;
 
   try {
     if (
-      !(typeof title === 'string') ||
+      !(typeof title === "string") ||
       !ObjectID.isValid(flowId) ||
       !ObjectID.isValid(parentId)
     ) {
-      throw exceptions.unprocessableEntity('Invalid argument type');
+      throw exceptions.unprocessableEntity("Invalid argument type");
     }
 
     //Para puxar todas as versoes precisa do parentID
@@ -592,24 +597,24 @@ router.put('/rename', async (req, res) => {
       },
     });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 
 // ? Edição de Fluxo
-router.put('/edit', async (req, res) => {
+router.put("/edit", async (req, res) => {
   const { title, elements, flowId } = req.body;
   const isArray = Array.isArray;
   try {
     const nowLocal = DateTime.now();
 
     if (
-      !(typeof title === 'string') ||
+      !(typeof title === "string") ||
       !isArray(elements) ||
       !ObjectID.isValid(flowId)
     ) {
-      throw exceptions.unprocessableEntity('Invalid argument type');
+      throw exceptions.unprocessableEntity("Invalid argument type");
     }
 
     const alreadyExists = await FlowModel.find({
@@ -663,20 +668,20 @@ router.put('/edit', async (req, res) => {
       },
     });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 
 // ? Seta como padrão
-router.put('/default', async (req, res) => {
+router.put("/default", async (req, res) => {
   const { flowId, versionId } = req.body;
 
   try {
     const nowLocal = DateTime.now();
 
     if (!ObjectID.isValid(flowId)) {
-      throw exceptions.unprocessableEntity('flowId must be a valid ObjectID');
+      throw exceptions.unprocessableEntity("flowId must be a valid ObjectID");
     }
 
     const flowModel = await FlowModel.findByIdAndUpdate(
@@ -693,19 +698,19 @@ router.put('/default', async (req, res) => {
       },
     });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 
 // ? Deleta o Projeto raiz e suas versões (se existirem)
-router.delete('/project/:flowId', async (req, res) => {
+router.put("/project/:flowId", async (req, res) => {
   const { flowId } = req.params;
   let message;
 
   try {
     if (!ObjectID.isValid(flowId)) {
-      throw exceptions.unprocessableEntity('flowId must be a valid objectID');
+      throw exceptions.unprocessableEntity("flowId must be a valid objectID");
     }
 
     const current = await FlowModel.findOne({ _id: flowId });
@@ -717,14 +722,40 @@ router.delete('/project/:flowId', async (req, res) => {
     const allVersions = await FlowModel.find({ parentId: flowId });
     if (allVersions) {
       allVersions.forEach(async (item) => {
-        await Node.remove({ flowId: item._id });
-        await Edge.remove({ flowId: item._id });
-        await FlowModel.findOneAndRemove({ _id: item._id });
+        await Node.updateMany(
+          { flowId: item._id },
+          { $set: { isDeleted: true } },
+          { new: true }
+        );
+        await Edge.updateMany(
+          { flowId: item._id },
+          { $set: { isDeleted: true } },
+          { new: true }
+        );
+        await FlowModel.findByIdAndUpdate(
+          { _id: item.id },
+          {
+            isDeleted: true,
+          }
+        );
       });
     }
-    await Node.remove({ flowId });
-    await Edge.remove({ flowId });
-    await FlowModel.findOneAndRemove({ _id: flowId });
+    await Node.updateMany(
+      { _id: flowId },
+      { $set: { isDeleted: true } },
+      { new: true }
+    );
+    await Edge.updateMany(
+      { _id: flowId },
+      { $set: { isDeleted: true } },
+      { new: true }
+    );
+    await FlowModel.findByIdAndUpdate(
+      { _id: flowId },
+      {
+        isDeleted: true,
+      }
+    );
     message = `Id: ${flowId} - Projeto deletado com sucesso.`;
 
     res.status(200).send({
@@ -736,18 +767,18 @@ router.delete('/project/:flowId', async (req, res) => {
       },
     });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
 // ? Deleta 1 fluxo
-router.delete('/flow/:flowId', async (req, res) => {
+router.delete("/flow/:flowId", async (req, res) => {
   const { flowId } = req.params;
   let message;
 
   try {
     if (!ObjectID.isValid(flowId)) {
-      throw exceptions.unprocessableEntity('flowId must be a valid object ID');
+      throw exceptions.unprocessableEntity("flowId must be a valid object ID");
     }
     const current = await FlowModel.findOne({ _id: flowId });
 
@@ -769,7 +800,7 @@ router.delete('/flow/:flowId', async (req, res) => {
       },
     });
   } catch (err) {
-    const code = err.code ? err.code : '412';
+    const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
 });
