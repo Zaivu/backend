@@ -1,9 +1,9 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const nodeSchema = new mongoose.Schema({
   flowId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'FlowModel',
+    ref: "FlowModel",
   },
   id: {
     type: String,
@@ -28,8 +28,13 @@ const nodeSchema = new mongoose.Schema({
   },
   tenantId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    required: true,
   },
 });
 
-mongoose.model('Node', nodeSchema);
+mongoose.model("Node", nodeSchema);

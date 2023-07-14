@@ -1,5 +1,5 @@
-const mongoose = require('mongoose');
-const mongoosePaginate = require('mongoose-paginate-v2');
+const mongoose = require("mongoose");
+const mongoosePaginate = require("mongoose-paginate-v2");
 
 const flowModelSchema = new mongoose.Schema({
   title: {
@@ -12,22 +12,22 @@ const flowModelSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    default: 'main',
+    default: "main",
     required: true,
   },
   tenantId: {
     //enterpriseID
     type: mongoose.Schema.Types.ObjectId,
     required: true,
-    ref: 'User',
+    ref: "User",
   },
   parentId: {
     type: mongoose.Schema.Types.ObjectId,
     required: function () {
-      return this.type === 'main' ? false : true;
+      return this.type === "main" ? false : true;
     },
 
-    ref: 'FlowModel',
+    ref: "FlowModel",
   },
   default: {
     type: mongoose.Schema.Types.ObjectId,
@@ -36,7 +36,12 @@ const flowModelSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    required: true,
+  },
 });
 
 flowModelSchema.plugin(mongoosePaginate);
-mongoose.model('FlowModel', flowModelSchema);
+mongoose.model("FlowModel", flowModelSchema);
