@@ -22,8 +22,15 @@ const activedTaskRoutes = require('./routes/activedTasksRoutes');
 // const activedRoutes = require('./routes/activedRoutes');
 const cors = require('cors');
 const path = require('path');
-
+const Queues = require('./lib/Queue')
 const app = express();
+const { ExpressAdapter } = require('@bull-board/express');
+const { createBullBoard } = require('bull-board')
+
+const { BullAdapter } = require('bull-board/bullAdapter')
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+
 
 //middlewares
 app.use(cors());
@@ -33,10 +40,19 @@ app.use(
   '/files',
   express.static(path.resolve(__dirname, '..', 'tmp', 'uploads'))
 );
+const timerQueue = Queues.queues.find(q => q.name === 'InitTimerEvent')
+
+const { router } = createBullBoard([
+  new BullAdapter(timerQueue.bull),
+
+])
+
+app.use('/admin/queues', router)
 
 app.get('/', (req, res) => {
   res.status(200).send('ok');
 });
+
 
 app.use(authRoutes);
 app.use(usersRoutes);
@@ -46,11 +62,13 @@ app.use('/activedtasks', activedTaskRoutes);
 
 // app.use(activedRoutes);
 
+
+
 const mongoUri = process.env.MONGO_URL;
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-});
+});mongoose
 
 mongoose.connection.on('connected', () => {
   console.log('Connected to mongo api // zaivu!');

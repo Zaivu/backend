@@ -8,6 +8,7 @@ const bcrypt = require("bcrypt");
 const router = express.Router();
 const exceptions = require("../exceptions");
 const AWS = require("aws-sdk");
+const Queue = require("../lib/Queue");
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 
 //Enviar email
@@ -29,6 +30,50 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
   };
   await ses.sendEmail(params).promise();
 }
+
+//Logar contar
+router.post("/auth/sign-in", async (req, res) => {
+  const { login, password } = req.body;
+
+  if (!login || !password) {
+    return res
+      .status(422)
+      .send({ error: "Must provide username and password" });
+  }
+
+  const user = await User.findOne({ email: login });
+
+  if (!user) {
+    return res.status(404).send({ error: "Invalid password or username." });
+  }
+
+  try {
+    await user.comparePassword(password);
+
+    const token = jwt.sign({ userId: user._id }, secret.config.jwtSecret, {
+      expiresIn: secret.config.jwtLife,
+    });
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      secret.config.jwtRefreshSecret,
+      { expiresIn: secret.config.jwtRefreshLife }
+    );
+
+    const userCopy = JSON.parse(JSON.stringify(user));
+
+    delete userCopy["password"];
+
+    const response = {
+      token,
+      refreshToken,
+      user: userCopy,
+    };
+
+    res.status(200).json(response);
+  } catch (err) {
+    return res.status(401).send({ error: "Invalid token" });
+  }
+});
 
 //Validar conta | status (idle) -> status(active) e receber nova senha
 router.post("/auth/sign-up/", async (req, res) => {
@@ -123,50 +168,6 @@ router.post("/auth/create-user/admin", async (req, res) => {
     res.send({ user: userCopy });
   } catch (err) {
     return res.status(422).send(err.message);
-  }
-});
-
-//Logar contar
-router.post("/auth/sign-in", async (req, res) => {
-  const { login, password } = req.body;
-
-  if (!login || !password) {
-    return res
-      .status(422)
-      .send({ error: "Must provide username and password" });
-  }
-
-  const user = await User.findOne({ email: login });
-
-  if (!user) {
-    return res.status(404).send({ error: "Invalid password or username." });
-  }
-
-  try {
-    await user.comparePassword(password);
-
-    const token = jwt.sign({ userId: user._id }, secret.config.jwtSecret, {
-      expiresIn: secret.config.jwtLife,
-    });
-    const refreshToken = jwt.sign(
-      { userId: user._id },
-      secret.config.jwtRefreshSecret,
-      { expiresIn: secret.config.jwtRefreshLife }
-    );
-
-    const userCopy = JSON.parse(JSON.stringify(user));
-
-    delete userCopy["password"];
-
-    const response = {
-      token,
-      refreshToken,
-      user: userCopy,
-    };
-
-    res.status(200).json(response);
-  } catch (err) {
-    return res.status(401).send({ error: "Invalid token" });
   }
 });
 
@@ -334,4 +335,14 @@ router.put("/auth/edit-enterprise-name", async (req, res) => {
   }
 });
 
+router.post("/auth/new-job", async (req, res) => {
+  try {
+    let nodeId = crypto.randomUUID();
+    const job = await Queue.add("InitTimerEvent", { nodeId });
+
+    res.send({ nodeId, jobId: job.id });
+  } catch (err) {
+    return res.status(422).send(err.message);
+  }
+});
 module.exports = router;
