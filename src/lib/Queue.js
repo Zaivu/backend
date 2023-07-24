@@ -3,25 +3,34 @@ const redisConfig = require("../config/redis");
 
 const jobs = require("../jobs");
 
+
+
 const queues = Object.values(jobs).map((job) => ({
-  bull: new Queue(job.key, redisConfig),
-  name: job.key,
-  handle: job.handle,
-  options: job.options,
+  bull: new Queue(job.key, redisConfig),      //Fila 
+  name: job.key,                              //Identificador
+  handle: job.handle,                         //Processamento
+  options: job.options,                       //Opções
 }));
 
 module.exports = {
   queues,
-  add(name, data) {
+  add(name, data) { // Pode passar um custom options aqui
     const queue = this.queues.find((queue) => queue.name === name);
     return queue.bull.add(data, queue.options);
   },
-  process() {
+ process() {
     return this.queues.forEach((queue) => {
-      queue.bull.process(queue.handle);
+     queue.bull.process(queue.handle);
 
+     
+     queue.bull.on('completed', (job) => {
+         
+        console.log('job completed: ', { id: job.id, nodeId: job.data.nodeId, return: job.returnvalue })
+
+      })
       queue.bull.on("failed", (job, err) => {
-        console.log("Job failed", queue.key, job.data);
+   
+        console.log("Job failed -> ", queue.name, job.data);
         console.log(err);
       });
     });

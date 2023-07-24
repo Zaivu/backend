@@ -340,6 +340,7 @@ router.post("/auth/new-job", async (req, res) => {
     let nodeId = crypto.randomUUID();
     const job = await Queue.add("InitTimerEvent", { nodeId });
 
+  
     res.send({ nodeId, jobId: job.id });
   } catch (err) {
     return res.status(422).send(err.message);

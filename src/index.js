@@ -41,6 +41,8 @@ app.use(
   express.static(path.resolve(__dirname, '..', 'tmp', 'uploads'))
 );
 const timerQueue = Queues.queues.find(q => q.name === 'InitTimerEvent')
+Queues.process()
+
 
 const { router } = createBullBoard([
   new BullAdapter(timerQueue.bull),
