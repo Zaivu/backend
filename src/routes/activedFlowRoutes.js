@@ -1,5 +1,4 @@
 const express = require("express");
-const moment = require("moment");
 const mongoose = require("mongoose");
 const ObjectID = require("mongodb").ObjectID;
 const exceptions = require("../exceptions");
@@ -13,10 +12,15 @@ const ActivedFlow = mongoose.model("ActivedFlow");
 const ActivedEdge = mongoose.model("ActivedEdge");
 const ActivedNode = mongoose.model("ActivedNode");
 const ChatMessage = mongoose.model("ChatMessage");
+const BackgroundJobs = mongoose.model("BackgroundJobs");
+
 const User = mongoose.model("User");
 const multerConfig = require("../config/multer");
 const multer = require("multer");
 const checkPermission = require("../middlewares/userPermission");
+const { confirmNode } = require("../lambdas/confirm-node");
+// const Queue = require('../lib/Queue')
+
 
 const Node = mongoose.model("Node");
 const Edge = mongoose.model("Edge");
@@ -25,7 +29,6 @@ const Post = mongoose.model("Post");
 
 router.use(requireAuth);
 
-let newStatus = [];
 
 async function getAccountableUsers(nodes) {
   let relatedUsers = [];
@@ -94,107 +97,6 @@ function walkParallelLoop(nodes, edges, item, callback) {
     return edges.map((element) => {
       if (element.source === item.id) {
         walkParallelLoop(nodes, edges, element, callback);
-        callback(element);
-      }
-    });
-  }
-}
-function walkEndLoop(nodes, edges, item, callback) {
-  ////SE FOR ARESTA
-  if (item.source) {
-    return nodes.map((el) => {
-      if (el.id === item.target) {
-        if (el.type === "parallelEnd") {
-          let validation = true;
-
-          edges.map((edge) => {
-            if (edge.target === el.id) {
-              nodes.map((node) => {
-                if (node.id === edge.source) {
-                  if (node.data.status !== "done") {
-                    validation = false;
-                    newStatus.push(node.id);
-                  }
-                }
-              });
-            }
-          });
-
-          if (validation) {
-            newStatus = [];
-            el.data.status = "done";
-            walkEndLoop(nodes, edges, el, callback);
-            callback(el);
-          }
-        } else if (el.type === "conditionalEnd") {
-          el.data.status = "done";
-          walkEndLoop(nodes, edges, el, callback);
-          callback(el);
-        } else {
-          const nowLocal = DateTime.now();
-          ///TAREFA OU CONDICIONAL
-          if (
-            el.type === "task" ||
-            el.type === "conditional" ||
-            el.type === "timerEvent"
-          ) {
-            if (el.type === "timerEvent") {
-              ///ativa o timer
-            }
-
-            //aq
-            el.data.status = "doing";
-            el.data.startedAt = nowLocal.toMillis();
-            newStatus.push(el.id);
-
-            if (el.type === "task") {
-              const expNumber = el.data.expiration.number;
-              const expDate = nowLocal.plus({ hours: expNumber });
-              el.data.expiration.date = expDate;
-            }
-          }
-          ////EVENTO DE FIM
-          else if (el.type === "eventEnd") {
-            el.data.status = "done";
-            newStatus = ["finished"];
-          }
-          ///PARALELO
-          else if (el.type === "parallel") {
-            el.data.status = "done";
-            walkParallelLoop(nodes, edges, el, (node) => {
-              if (node.source) {
-                node.data.status = "done";
-              }
-              if (node.type === "task") {
-                //aq
-                const expNumber = node.data.expiration.number;
-
-                const expDate = nowLocal.plus({ hours: expNumber });
-
-                node.data.startedAt = nowLocal.toMillis();
-                node.data.expiration.date = expDate;
-                node.data.status = "doing";
-                newStatus.push(node.id);
-              }
-              if (node.type === "conditional") {
-                node.data.startedAt = nowLocal.toMillis();
-                node.data.status = "doing";
-                newStatus.push(node.id);
-              }
-              if (node.type === "parallel") {
-                node.data.status = "done";
-              }
-            });
-          }
-        }
-      }
-    });
-  }
-  ////SE FOR NÓ
-  else {
-    return edges.map((element) => {
-      if (element.source === item.id) {
-        walkEndLoop(nodes, edges, element, callback);
         callback(element);
       }
     });
@@ -736,6 +638,64 @@ router.post("/chat/new", async (req, res) => {
   }
 });
 
+//add Subtask
+router.post("/task/subtask/new", async (req, res) => {
+  try {
+    const { taskId, title = "Subtarefa", checked = false } = req.body;
+
+    const randomId = randomUUID();
+
+    const taskUpdated = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      {
+        $push: {
+          "data.subtasks": {
+            title: title + " " + DateTime.now(),
+            checked,
+            id: randomId,
+          },
+        },
+      },
+      { new: true }
+    );
+
+    const subtasks = taskUpdated.data.subtasks;
+
+    res.send({ subtasks, taskId: taskUpdated._id });
+  } catch (err) {
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//new File
+router.post(
+  "/new-file",
+  multer(multerConfig).single("file"),
+  async (req, res) => {
+    const { originalname: name, size, key, location: url = "" } = req.file;
+    const { originalId, type, tenantId } = req.body;
+
+    try {
+      const post = await Post.create({
+        name,
+        size,
+        key,
+        url,
+        originalId,
+        type,
+        tenantId,
+      });
+
+      return res.json(post);
+    } catch (err) {
+      const code = err.code ? err.code : "412";
+      res.status(code).send({ error: err.message, code });
+    }
+  }
+);
+
+
 //Update flow Accountable
 router.put("/accountable/", checkPermission, async (req, res) => {
   const { userId, id: flowId } = req.body;
@@ -764,18 +724,33 @@ router.put("/accountable/", checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-//Remove flow Accountable
-router.delete("/accountable/:id", checkPermission, async (req, res) => {
-  const { id: flowId } = req.params;
 
+//update Subtask
+router.put("/task/subtask/update", async (req, res) => {
   try {
-    const flow = await ActivedFlow.findOneAndUpdate(
-      { _id: flowId },
-      { accountable: null },
-      { new: true }
+    const { taskId, id, title = "", checked = false } = req.body;
+
+    const currentTask = await ActivedNode.findById({ _id: taskId });
+
+    const allSubtasks = currentTask.data.subtasks;
+
+    const updatingSubtasks = allSubtasks.map((item) =>
+      item.id === id ? (item = { ...item, title, checked }) : item
     );
 
-    res.status(200).send({ flowId: flow._id, accountable: null });
+    const taskUpdated = await ActivedNode.findOneAndUpdate(
+      { _id: taskId },
+      {
+        $set: { "data.subtasks": updatingSubtasks },
+      },
+      {
+        new: true,
+      }
+    );
+
+    const subtasks = taskUpdated.data.subtasks;
+
+    res.send({ subtasks, taskId: taskUpdated._id });
   } catch (err) {
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
@@ -783,290 +758,60 @@ router.delete("/accountable/:id", checkPermission, async (req, res) => {
 });
 
 //Confirm task | conditional option
-//! Rota será refeita
 router.put("/node/confirm", async (req, res) => {
   const { flowId, taskId, edgeId } = req.body;
-
   const user = req.user;
 
-  const nowLocal = DateTime.now();
+  const tenantId = user.tenantId ? user.tenantId : user._id;
+
 
   try {
     //////////////ATUAL
+    const payload = {
+      nodeId: taskId,
+      userId: user._id,
+      edgeId
 
-    const node = await ActivedNode.findOne({ _id: taskId });
-
-    // const subtasks = taskExpired.data.subtasks.map((item) => {
-    //   return { ...item, checked: true };s
-    // });
-
-    const nodes = await ActivedNode.find({ flowId });
-    const edges = await ActivedEdge.find({ flowId });
-
-    //! LastState deve ser revisado no futuro..
-    await ActivedFlow.findByIdAndUpdate(flowId, {
-      lastState: [...nodes, ...edges],
-    });
-
-    let taskUpdated;
-
-    //Tarefa que será setada como 'done'
-    if (node.type === "task") {
-      taskUpdated = await ActivedNode.findOneAndUpdate(
-        { _id: taskId },
-        {
-          $set: {
-            "data.status": "done",
-            "data.finishedAt": nowLocal.toMillis(),
-            "data.finishedBy": {
-              userId: user._id,
-            },
-            //Se ela expirou, mas verificar a real necessidade dessa parte
-            "data.expired":
-              moment(node.data.startedAt)
-                .add(node.data.expiration.number, "hours")
-                .diff(nowLocal, "hours", true) < 0
-                ? true
-                : false,
-            // 'data.subtasks': subtasks,
-          },
-        }
-      );
-    } else {
-      //Qualquer outro node
-      taskUpdated = await ActivedNode.findOneAndUpdate(
-        { _id: taskId },
-        {
-          $set: {
-            "data.status": "done",
-            "data.finishedAt": nowLocal.toMillis(),
-          },
-        }
-      );
     }
+    const response = await confirmNode(payload); //lambda
+    const statusCode = response.statusCode;
 
-    let arrowUpdated;
+    if(statusCode === 500)
+      throw exceptions.unprocessableEntity("Lambda Error - Node Confirm", response )
 
-    //-> Aresta mais a direita
+    const body = JSON.parse(response.body) 
+    const backgroundJobs = body.action.backgroundJobs;
 
-    const searchNextEdge = edgeId
-      ? {
-          flowId,
-          _id: edgeId,
-        }
-      : {
-          flowId,
-          source: node.id,
-        };
 
-    const nextEdge = await ActivedEdge.findOne(searchNextEdge);
-    //Preciso verificar se há alguma diferença nessa condicional
-    if (taskUpdated.type === "task") {
-      arrowUpdated = await ActivedEdge.findOneAndUpdate(
-        { source: taskUpdated.id, flowId },
-        { $set: { "data.status": "done" } }
-      );
-    } else {
-      arrowUpdated = await ActivedEdge.findOneAndUpdate(
-        { _id: nextEdge._id },
-        { $set: { "data.status": "done" } }
-      );
-    }
+     await Promise.all(backgroundJobs.map(async(item) => {
+      const durationInHours = item.data.expiration.number;
+      const startedAt = DateTime.fromMillis(item.data.startedAt);
+      const expectedAt = startedAt.plus({ hours: durationInHours })
+      // const durationInMilliseconds = durationInHours * 60 * 60 * 1000;
 
-    //PROXIMO do fluxo ->
-    const nextTask = await ActivedNode.findOne({
-      id: arrowUpdated.target,
-      flowId,
-    });
-
-    //Tarefa ou condicional
-    if (
-      nextTask.type === "task" ||
-      nextTask.type === "conditional" ||
-      nextTask.type === "timerEvent"
-    ) {
-      const nodes = await ActivedNode.find({ flowId });
-
-      if (nextTask.type === "task") {
-        const expNumber = nextTask.data.expiration.number;
-
-        const expDate = nowLocal.plus({ hours: expNumber });
-
-        await ActivedNode.findOneAndUpdate(
-          { _id: nextTask._id },
-          {
-            $set: {
-              "data.status": "doing",
-              "data.startedAt": nowLocal.toMillis(),
-              "data.expiration.date": expDate.toMillis(),
-            },
-          }
-        );
-      } else {
-        await ActivedNode.findOneAndUpdate(
-          { _id: nextTask._id },
-          {
-            $set: {
-              "data.status": "doing",
-              "data.startedAt": nowLocal.toMillis(),
-            },
-          }
-        );
+      const payload = {
+        nodeId: item._id,
+        userId: user._id,
+        expectedAt: expectedAt.toMillis(),
       }
-      //newStatus ?
-      if (newStatus[0] !== "finished") {
-        let filter = nodes.filter(
-          (item) =>
-            item.data.status === "doing" &&
-            (item.type === "task" ||
-              item.type === "conditional" ||
-              item.type === "timerEvent")
-        );
-        newStatus = filter.map((item) => item.id);
-        if (
-          nextTask.type === "task" ||
-          nextTask.type === "conditional" ||
-          nextTask.type === "timerEvent"
-        )
-          newStatus.push(nextTask.id);
+
+
+      const jobId = payload.nodeId;
+      
+      const alreadyExist =  await BackgroundJobs.findOne({ jobId }) 
+
+      if(alreadyExist){
+          throw exceptions.alreadyExists(`This Background job already exists`)
       }
-    } else if (nextTask.type === "parallel") {
-      const edges = await ActivedEdge.find({ flowId });
-      const nodes = await ActivedNode.find({ flowId });
 
-      nodes.map((item) =>
-        item.id === nextTask.id ? (item.data.status = "done") : null
-      );
+      const jobModel = new BackgroundJobs({ flowId, jobId, type: 'ConfirmNode', 
+                                            payload, tenantId, createdAt: DateTime.now().toMillis() });
+      await jobModel.save();
+  
+}))
 
-      walkParallelLoop(nodes, edges, nextTask, (node) => {
-        if (node.source) {
-          node.data.status = "done";
-        }
-        if (node.type === "task") {
-          const expNumber = node.data.expiration.number;
-          const expDate = nowLocal.plus({ hours: expNumber });
 
-          node.data.startedAt = nowLocal.toMillis();
-          node.data.status = "doing";
-          node.data.expiration.date = expDate.toMillis();
-        }
-        if (node.type === "timerEvent") {
-          node.data.startedAt = nowLocal.toMillis();
-          node.data.status = "doing";
-        }
-        if (node.type === "conditional") {
-          node.data.startedAt = nowLocal.toMillis();
-          node.data.status = "doing";
-        }
-        if (node.type === "parallel") {
-          node.data.status = "done";
-        }
-      });
-
-      await Promise.all(
-        nodes.map(async (item) => {
-          await ActivedNode.findOneAndUpdate({ _id: item._id }, item);
-        })
-      );
-
-      await Promise.all(
-        edges.map(async (item) => {
-          await ActivedEdge.findOneAndUpdate({ _id: item._id }, item);
-        })
-      );
-
-      if (newStatus[0] !== "finished") {
-        let filter = nodes.filter(
-          (item) =>
-            item.data.status === "doing" &&
-            (item.type === "task" ||
-              item.type === "conditional" ||
-              item.type === "timerEvent")
-        );
-        newStatus = filter.map((item) => item.id);
-        if (
-          nextTask.type === "task" ||
-          nextTask.type === "conditional" ||
-          nextTask.type === "timerEvent"
-        )
-          newStatus.push(nextTask.id);
-      }
-    } else if (
-      nextTask.type === "parallelEnd" ||
-      nextTask.type === "conditionalEnd"
-    ) {
-      const edges = await ActivedEdge.find({ flowId });
-      const nodes = await ActivedNode.find({ flowId });
-
-      walkEndLoop(
-        nodes,
-        edges,
-        edges.find((e) => e.target === nextTask.id),
-        (node) => {
-          if (node.type === "conditionalEnd" || node.type === "parallelEnd") {
-            node.data.status = "done";
-          }
-          if (node.source) {
-            node.data.status = "done";
-          }
-        }
-      );
-
-      await Promise.all(
-        nodes.map(async (item) => {
-          await ActivedNode.findOneAndUpdate({ _id: item._id }, item);
-        })
-      );
-
-      await Promise.all(
-        edges.map(async (item) => {
-          await ActivedEdge.findOneAndUpdate({ _id: item._id }, item);
-        })
-      );
-
-      if (newStatus[0] !== "finished") {
-        let filter = nodes.filter(
-          (item) =>
-            item.data.status === "doing" &&
-            (item.type === "task" ||
-              item.type === "conditional" ||
-              item.type === "timerEvent")
-        );
-        newStatus = filter.map((item) => item.id);
-        if (
-          nextTask.type === "task" ||
-          nextTask.type === "conditional" ||
-          nextTask.type === "timerEvent"
-        )
-          newStatus.push(nextTask.id);
-      }
-    } else if (nextTask.type === "eventEnd") {
-      newStatus = ["finished"];
-
-      await ActivedNode.findOneAndUpdate(
-        { _id: nextTask._id },
-        { $set: { "data.status": "done" } }
-      );
-    }
-
-    if (newStatus[0] === "finished") {
-      await ActivedFlow.findOneAndUpdate(
-        { _id: flowId },
-        {
-          status: newStatus,
-          finishedAt: nowLocal,
-          finishedBy: {
-            userId: user._id,
-          },
-        }
-      );
-    } else {
-      await ActivedFlow.findOneAndUpdate(
-        { _id: flowId },
-        { status: newStatus }
-      );
-    }
-
+    
     const activedFlow = await ActivedFlow.findById(flowId);
     const newNodes = await ActivedNode.find({ flowId: flowId });
 
@@ -1097,7 +842,6 @@ router.put("/node/confirm", async (req, res) => {
 
     const newEdges = await ActivedEdge.find({ flowId: flowId });
 
-    newStatus = [];
 
     const flow = {
       _id: activedFlow._id,
@@ -1117,9 +861,8 @@ router.put("/node/confirm", async (req, res) => {
       flow,
     });
   } catch (err) {
-    console.log(err);
-
-    res.status(422).send({ error: err.message });
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
   }
 });
 
@@ -1193,62 +936,71 @@ router.put("/undo", checkPermission, async (req, res) => {
   }
 });
 
-//add Subtask
-router.post("/task/subtask/new", async (req, res) => {
-  try {
-    const { taskId, title = "Subtarefa", checked = false } = req.body;
-
-    const randomId = randomUUID();
-
-    const taskUpdated = await ActivedNode.findOneAndUpdate(
-      { _id: taskId },
-      {
-        $push: {
-          "data.subtasks": {
-            title: title + " " + DateTime.now(),
-            checked,
-            id: randomId,
-          },
-        },
-      },
-      { new: true }
-    );
-
-    const subtasks = taskUpdated.data.subtasks;
-
-    res.send({ subtasks, taskId: taskUpdated._id });
-  } catch (err) {
-    const code = err.code ? err.code : "412";
-    res.status(code).send({ error: err.message, code });
-  }
-});
 
 //update Subtask
-router.put("/task/subtask/update", async (req, res) => {
+router.put("/task/description", async (req, res) => {
   try {
-    const { taskId, id, title = "", checked = false } = req.body;
-
-    const currentTask = await ActivedNode.findById({ _id: taskId });
-
-    const allSubtasks = currentTask.data.subtasks;
-
-    const updatingSubtasks = allSubtasks.map((item) =>
-      item.id === id ? (item = { ...item, title, checked }) : item
-    );
+    const { taskId, description = "" } = req.body;
 
     const taskUpdated = await ActivedNode.findOneAndUpdate(
       { _id: taskId },
       {
-        $set: { "data.subtasks": updatingSubtasks },
+        $set: { "data.comments": description },
       },
       {
         new: true,
       }
     );
 
-    const subtasks = taskUpdated.data.subtasks;
+    const newDescription = taskUpdated.data.comments;
 
-    res.send({ subtasks, taskId: taskUpdated._id });
+    res.send({ description: newDescription, taskId: taskUpdated._id });
+  } catch (err) {
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+
+//? New Delete Actived Flow
+router.put("/delete/", checkPermission, async (req, res) => {
+  const { flowId } = req.body;
+  try {
+    const response = await ActivedFlow.findByIdAndUpdate(flowId, {
+      isDeleted: true,
+    });
+
+    await ActivedNode.updateMany(
+      { flowId },
+      { $set: { isDeleted: true } },
+      { new: true }
+    );
+    await ActivedEdge.updateMany(
+      { flowId },
+      { $set: { isDeleted: true } },
+      { new: true }
+    );
+
+    res.send({ response }).status(200);
+  } catch (err) {
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+
+//Remove flow Accountable
+router.delete("/accountable/:id", checkPermission, async (req, res) => {
+  const { id: flowId } = req.params;
+
+  try {
+    const flow = await ActivedFlow.findOneAndUpdate(
+      { _id: flowId },
+      { accountable: null },
+      { new: true }
+    );
+
+    res.status(200).send({ flowId: flow._id, accountable: null });
   } catch (err) {
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
@@ -1283,82 +1035,8 @@ router.delete("/task/subtask/delete/:taskId/:id", async (req, res) => {
   }
 });
 
-//update Subtask
-router.put("/task/description", async (req, res) => {
-  try {
-    const { taskId, description = "" } = req.body;
 
-    const taskUpdated = await ActivedNode.findOneAndUpdate(
-      { _id: taskId },
-      {
-        $set: { "data.comments": description },
-      },
-      {
-        new: true,
-      }
-    );
 
-    const newDescription = taskUpdated.data.comments;
-
-    res.send({ description: newDescription, taskId: taskUpdated._id });
-  } catch (err) {
-    const code = err.code ? err.code : "412";
-    res.status(code).send({ error: err.message, code });
-  }
-});
-
-//new File
-router.post(
-  "/new-file",
-  multer(multerConfig).single("file"),
-  async (req, res) => {
-    const { originalname: name, size, key, location: url = "" } = req.file;
-    const { originalId, type, tenantId } = req.body;
-
-    try {
-      const post = await Post.create({
-        name,
-        size,
-        key,
-        url,
-        originalId,
-        type,
-        tenantId,
-      });
-
-      return res.json(post);
-    } catch (err) {
-      const code = err.code ? err.code : "412";
-      res.status(code).send({ error: err.message, code });
-    }
-  }
-);
-
-//? New Delete Actived Flow
-router.put("/delete/", checkPermission, async (req, res) => {
-  const { flowId } = req.body;
-  try {
-    const response = await ActivedFlow.findByIdAndUpdate(flowId, {
-      isDeleted: true,
-    });
-
-    await ActivedNode.updateMany(
-      { flowId },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-    await ActivedEdge.updateMany(
-      { flowId },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-
-    res.send({ response }).status(200);
-  } catch (err) {
-    const code = err.code ? err.code : "412";
-    res.status(code).send({ error: err.message, code });
-  }
-});
 
 //Delete File
 router.delete("/remove-file/:fileId", async (req, res) => {

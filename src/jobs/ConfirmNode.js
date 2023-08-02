@@ -2,7 +2,7 @@
 
 // In your Node.js app, before using the AWS SDK, configure your credentials.
 
-const { hellofunction } = require("../lambdas/hello");
+const { confirmNode } = require("../lambdas/confirm-node");
 //Job para o timer
 /**
  * Identificador: key
@@ -11,14 +11,14 @@ const { hellofunction } = require("../lambdas/hello");
  */
 
 module.exports = {
-  key: "InitTimerEvent",
+  key: "ConfirmNode",
   options:{ delay: 5000 },
   async handle(job, done) {
-    const { nodeId } = job.data;
+    const { nodeId, edgeId, userId } = job.data;
 
 
-    const payload = { nodeId }
-    const res = await hellofunction(payload);
+    const payload = { nodeId, edgeId, userId };
+    const res = await confirmNode(payload); //lambda
 
     const statusCode = res.statusCode;
     const data = res.body;
@@ -26,7 +26,7 @@ module.exports = {
     if(statusCode === 200){
       done(null, { msg: data } )
     }else{
-      done(new Error('Error when invoking lambda: ', 'helloFunction'))
+      done(new Error('Error when invoking lambda'))
     }
 
 

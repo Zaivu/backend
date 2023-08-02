@@ -8,7 +8,6 @@ const bcrypt = require("bcrypt");
 const router = express.Router();
 const exceptions = require("../exceptions");
 const AWS = require("aws-sdk");
-const Queue = require("../lib/Queue");
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 
 //Enviar email
@@ -338,10 +337,9 @@ router.put("/auth/edit-enterprise-name", async (req, res) => {
 router.post("/auth/new-job", async (req, res) => {
   try {
     let nodeId = crypto.randomUUID();
-    const job = await Queue.add("InitTimerEvent", { nodeId });
+    // const job = await Queue.add("InitTimerEvent", { nodeId }, { delay: 15000 });
 
-  
-    res.send({ nodeId, jobId: job.id });
+    res.send({ nodeId, jobId: 'job.id' });
   } catch (err) {
     return res.status(422).send(err.message);
   }

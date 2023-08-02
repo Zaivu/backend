@@ -4,7 +4,6 @@ const redisConfig = require("../config/redis");
 const jobs = require("../jobs");
 
 
-
 const queues = Object.values(jobs).map((job) => ({
   bull: new Queue(job.key, redisConfig),      //Fila 
   name: job.key,                              //Identificador
@@ -12,14 +11,20 @@ const queues = Object.values(jobs).map((job) => ({
   options: job.options,                       //Opções
 }));
 
+
 module.exports = {
   queues,
-  add(name, data) { // Pode passar um custom options aqui
+  add(name, data, options) { // Pode passar um custom options aqui
+
+    const currentlyOptions = options ? options : queue.options;
+
     const queue = this.queues.find((queue) => queue.name === name);
-    return queue.bull.add(data, queue.options);
+
+    return queue.bull.add(data, currentlyOptions);
   },
  process() {
     return this.queues.forEach((queue) => {
+      
      queue.bull.process(queue.handle);
 
      

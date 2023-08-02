@@ -1,2 +1,2 @@
-const TimerEventService = require("./InitTimer");
-module.exports = { TimerEventService };
+const ConfirmNodeService = require("./ConfirmNode");
+module.exports = { ConfirmNodeService };

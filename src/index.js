@@ -6,6 +6,7 @@ require('./models/Node');
 require('./models/ActivedEdge');
 require('./models/ActivedNode');
 require('./models/User');
+require('./models/BackgroundJobs');
 require('./models/Post');
 require('./models/ChatMessage');
 
@@ -19,7 +20,6 @@ const activedFlowRoutes = require('./routes/activedFlowRoutes');
 const authRoutes = require('./routes/authRoutes');
 const usersRoutes = require('./routes/usersRoutes');
 const activedTaskRoutes = require('./routes/activedTasksRoutes');
-// const activedRoutes = require('./routes/activedRoutes');
 const cors = require('cors');
 const path = require('path');
 const Queues = require('./lib/Queue')
@@ -32,6 +32,8 @@ const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/admin/queues');
 
 
+
+
 //middlewares
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -40,12 +42,13 @@ app.use(
   '/files',
   express.static(path.resolve(__dirname, '..', 'tmp', 'uploads'))
 );
-const timerQueue = Queues.queues.find(q => q.name === 'InitTimerEvent')
+const nodesQueue = Queues.queues.find(q => q.name === 'ConfirmNode')
 Queues.process()
 
 
+
 const { router } = createBullBoard([
-  new BullAdapter(timerQueue.bull),
+  new BullAdapter(nodesQueue.bull),
 
 ])
 

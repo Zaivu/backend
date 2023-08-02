@@ -18,8 +18,11 @@ module.exports = {
     error.code = '412';
     return error;
   },
-  alreadyExists: () => {
-    const error = new Error('Entity already exists');
+  alreadyExists: (msg = null) => {
+    const message = msg ? ' - ' + msg : '';
+
+
+    const error = new Error('Entity already exists' + message);
     error.code = '409';
 
     return error;
