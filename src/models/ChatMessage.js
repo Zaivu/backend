@@ -27,4 +27,4 @@ const chatMessageSchema = new mongoose.Schema({
   },
 });
 
-mongoose.model('ChatMessage', chatMessageSchema);
+module.export =  mongoose.model('ChatMessage', chatMessageSchema);

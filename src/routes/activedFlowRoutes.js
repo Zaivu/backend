@@ -14,18 +14,18 @@ const ActivedNode = mongoose.model("ActivedNode");
 const ChatMessage = mongoose.model("ChatMessage");
 const BackgroundJobs = mongoose.model("BackgroundJobs");
 
+const Node = mongoose.model("Node");
+const Edge = mongoose.model("Edge");
+const Post = mongoose.model("Post");
+
 const User = mongoose.model("User");
 const multerConfig = require("../config/multer");
 const multer = require("multer");
 const checkPermission = require("../middlewares/userPermission");
 const { confirmNode } = require("../lambdas/confirm-node");
+const sendAllJobs = require("../utils/sendAllJobs");
 // const Queue = require('../lib/Queue')
 
-
-const Node = mongoose.model("Node");
-const Edge = mongoose.model("Edge");
-
-const Post = mongoose.model("Post");
 
 router.use(requireAuth);
 
@@ -762,7 +762,7 @@ router.put("/node/confirm", async (req, res) => {
   const { flowId, taskId, edgeId } = req.body;
   const user = req.user;
 
-  const tenantId = user.tenantId ? user.tenantId : user._id;
+  // const tenantId = user.tenantId ? user.tenantId : user._id;
 
 
   try {
@@ -783,35 +783,16 @@ router.put("/node/confirm", async (req, res) => {
     const backgroundJobs = body.action.backgroundJobs;
 
 
-     await Promise.all(backgroundJobs.map(async(item) => {
-      const durationInHours = item.data.expiration.number;
-      const startedAt = DateTime.fromMillis(item.data.startedAt);
-      const expectedAt = startedAt.plus({ hours: durationInHours })
-      // const durationInMilliseconds = durationInHours * 60 * 60 * 1000;
-
-      const payload = {
-        nodeId: item._id,
-        userId: user._id,
-        expectedAt: expectedAt.toMillis(),
-      }
 
 
-      const jobId = payload.nodeId;
-      
-      const alreadyExist =  await BackgroundJobs.findOne({ jobId }) 
-
-      if(alreadyExist){
-          throw exceptions.alreadyExists(`This Background job already exists`)
-      }
-
-      const jobModel = new BackgroundJobs({ flowId, jobId, type: 'ConfirmNode', 
-                                            payload, tenantId, createdAt: DateTime.now().toMillis() });
-      await jobModel.save();
-  
-}))
+    const options = {
+      userId: body.from.userId,
+      flowId: body.action.flowId,
+      type: "ConfirmNode",
+    }
 
 
-    
+    await sendAllJobs(backgroundJobs,  options, BackgroundJobs)
     const activedFlow = await ActivedFlow.findById(flowId);
     const newNodes = await ActivedNode.find({ flowId: flowId });
 
@@ -861,6 +842,7 @@ router.put("/node/confirm", async (req, res) => {
       flow,
     });
   } catch (err) {
+    console.log(err)
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }

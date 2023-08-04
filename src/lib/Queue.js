@@ -1,7 +1,8 @@
 const Queue = require("bull");
 const redisConfig = require("../config/redis");
-
 const jobs = require("../jobs");
+const sendAllJobs = require("../utils/sendAllJobs");
+
 
 
 const queues = Object.values(jobs).map((job) => ({
@@ -22,20 +23,36 @@ module.exports = {
 
     return queue.bull.add(data, currentlyOptions);
   },
- process() {
+  process(BackgroundModel) {
+
+
     return this.queues.forEach((queue) => {
       
      queue.bull.process(queue.handle);
 
-     
-     queue.bull.on('completed', (job) => {
-         
-        console.log('job completed: ', { id: job.id, nodeId: job.data.nodeId, return: job.returnvalue })
+     queue.bull.on('completed', async (job) => {         
+    
+        console.log('job completed: ', { id: job.id, return: job.returnvalue })
+        await BackgroundModel.findOneAndRemove({ jobId: job.id }) 
+        const response = JSON.parse(job.returnvalue.msg)
+        const bJobs = response.action.backgroundJobs;
+
+
+        const options = {
+          userId: response.from.userId,
+          flowId: response.action.flowId,
+          type: "ConfirmNode",
+        }
+
+        await sendAllJobs(bJobs, options, BackgroundModel)
 
       })
-      queue.bull.on("failed", (job, err) => {
+      queue.bull.on("failed", async (job, err) => {
    
-        console.log("Job failed -> ", queue.name, job.data);
+        console.log("Job failed -> ", { id: job.id, return: job.returnvalue });
+
+        await BackgroundModel.findOneAndUpdate({ jobId: job.id }, { status: 'suspended'} )
+
         console.log(err);
       });
     });

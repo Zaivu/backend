@@ -108,4 +108,4 @@ userSchema.pre('save', function (next) {
   next();
 });
 userSchema.plugin(mongoosePaginate);
-mongoose.model('User', userSchema);
+module.exports = mongoose.model('User', userSchema);

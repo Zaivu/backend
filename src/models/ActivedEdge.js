@@ -50,4 +50,4 @@ const activedEdgeSchema = new mongoose.Schema({
   },
 });
 
-mongoose.model('ActivedEdge', activedEdgeSchema);
+module.export = mongoose.model('ActivedEdge', activedEdgeSchema);

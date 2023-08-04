@@ -5,12 +5,10 @@ const { DateTime } = require("luxon");
 const backgroundJobsSchema = new mongoose.Schema({
   flowId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "FlowModel",
     required: true,
   },
   jobId:{
     type: mongoose.Schema.Types.ObjectId,
-    ref: "ActivedNode",
     required: true,
   },
   type: {
@@ -19,12 +17,6 @@ const backgroundJobsSchema = new mongoose.Schema({
   },
   payload: {
     type: Object,
-  },
-
-  tenantId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
   },
   status: {
     type: String,
@@ -53,4 +45,7 @@ backgroundJobsSchema.pre('save', async function (next) {
 
 
 
-mongoose.model("BackgroundJobs", backgroundJobsSchema);
+module.exports = mongoose.model('BackgroundJobs', backgroundJobsSchema);
+
+
+

@@ -38,4 +38,4 @@ const activedNodeSchema = new mongoose.Schema({
 });
 
 activedNodeSchema.plugin(mongoosePaginate);
-mongoose.model('ActivedNode', activedNodeSchema);
+module.export = mongoose.model('ActivedNode', activedNodeSchema);

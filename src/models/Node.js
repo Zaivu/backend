@@ -37,4 +37,4 @@ const nodeSchema = new mongoose.Schema({
   },
 });
 
-mongoose.model("Node", nodeSchema);
+module.export =  mongoose.model("Node", nodeSchema);
