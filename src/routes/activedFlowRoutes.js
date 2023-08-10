@@ -519,9 +519,11 @@ router.post("/new", checkPermission, async (req, res) => {
 
           if (item.type === "task") {
             item.data.subtasks.map((e) => {
-              subtasks.push({ title: e, checked: false });
+              subtasks.push({...e, id: randomUUID() });
             });
           }
+
+      
 
           const isAlreadyDoing = doing.find((e) => e === item.id);
 
@@ -537,7 +539,7 @@ router.post("/new", checkPermission, async (req, res) => {
                     posts: [],
                     status: isAlreadyDoing ? "doing" : "pending",
                     subtasks,
-                    accountable: "Ninguém",
+                    accountable: null,
 
                     startedAt: isAlreadyDoing //
                       ? nowLocal.toMillis()
@@ -586,6 +588,9 @@ router.post("/new", checkPermission, async (req, res) => {
 
     const acNodes = await ActivedNode.find({ flowId: activedFlow._id });
     const acEdges = await ActivedEdge.find({ flowId: activedFlow._id });
+
+
+    
 
     res.status(200).json({
       activedflow: {

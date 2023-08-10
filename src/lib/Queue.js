@@ -25,7 +25,6 @@ module.exports = {
   },
   process(BackgroundModel) {
 
-
     return this.queues.forEach((queue) => {
       
      queue.bull.process(queue.handle);
