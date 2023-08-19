@@ -122,8 +122,8 @@ router.get("/pagination/:page", checkPermission, async (req, res) => {
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
-    ? { title: 1 }
-    : { createdAt: -1 };
+      ? { title: 1 }
+      : { createdAt: -1 };
 
   try {
     // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
@@ -192,10 +192,10 @@ router.get("/pagination/history/:page", checkPermission, async (req, res) => {
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
-    ? { title: 1 }
-    : isFinishedAt
-    ? { finishedAt: -1 } // Variavel da Ordem de conclusão //! Em Teste
-    : { createdAt: -1 };
+      ? { title: 1 }
+      : isFinishedAt
+        ? { finishedAt: -1 } // Variavel da Ordem de conclusão //! Em Teste
+        : { createdAt: -1 };
 
   try {
     const paginateOptions = {
@@ -507,9 +507,9 @@ router.post("/new", checkPermission, async (req, res) => {
               item.data === undefined
                 ? { ...item.data, status: "pending" }
                 : {
-                    ...item.data,
-                    status: test ? "done" : "pending",
-                  },
+                  ...item.data,
+                  status: test ? "done" : "pending",
+                },
             flowId: activedFlow._id,
             tenantId,
           });
@@ -519,11 +519,10 @@ router.post("/new", checkPermission, async (req, res) => {
 
           if (item.type === "task") {
             item.data.subtasks.map((e) => {
-              subtasks.push({...e, id: randomUUID() });
+              subtasks.push({ ...e, id: randomUUID() });
             });
           }
 
-      
 
           const isAlreadyDoing = doing.find((e) => e === item.id);
 
@@ -534,29 +533,29 @@ router.post("/new", checkPermission, async (req, res) => {
             data:
               item.type === "task"
                 ? {
-                    ...item.data,
-                    comments: "",
-                    posts: [],
-                    status: isAlreadyDoing ? "doing" : "pending",
-                    subtasks,
-                    accountable: null,
+                  ...item.data,
+                  comments: "",
+                  posts: [],
+                  status: isAlreadyDoing ? "doing" : "pending",
+                  subtasks,
+                  accountable: null,
 
-                    startedAt: isAlreadyDoing //
-                      ? nowLocal.toMillis()
-                      : undefined,
+                  startedAt: isAlreadyDoing //
+                    ? nowLocal.toMillis()
+                    : undefined,
 
-                    expiration: {
-                      ...item.data.expiration,
+                  expiration: {
+                    ...item.data.expiration,
 
-                      date: isAlreadyDoing
-                        ? nowLocal
-                            .plus({ hours: item.data.expiration.number })
-                            .toMillis()
-                        : null,
-                    },
-                  }
-                : item.type === "timerEvent"
-                ? {
+                    date: isAlreadyDoing
+                      ? nowLocal
+                        .plus({ hours: item.data.expiration.number })
+                        .toMillis()
+                      : null,
+                  },
+                }
+                : item.type === "timerEvent" || item.type === 'conditional'
+                  ? {
                     ...item.data,
                     status: doing.find((e) => e === item.id)
                       ? "doing"
@@ -565,16 +564,17 @@ router.post("/new", checkPermission, async (req, res) => {
                       ? nowLocal.toMillis()
                       : undefined,
                   }
-                : {
+
+                  : {
                     ...item.data,
                     status:
                       item.type === "eventStart"
                         ? "done"
                         : doing.find((e) => e === item.id)
-                        ? "doing"
-                        : item.data.status !== "model"
-                        ? item.data.status
-                        : "pending",
+                          ? "doing"
+                          : item.data.status !== "model"
+                            ? item.data.status
+                            : "pending",
                   },
             flowId: activedFlow._id,
             targetPosition: item.targetPosition,
@@ -590,7 +590,7 @@ router.post("/new", checkPermission, async (req, res) => {
     const acEdges = await ActivedEdge.find({ flowId: activedFlow._id });
 
 
-    
+
 
     res.status(200).json({
       activedflow: {
@@ -781,10 +781,10 @@ router.put("/node/confirm", async (req, res) => {
     const response = await confirmNode(payload); //lambda
     const statusCode = response.statusCode;
 
-    if(statusCode === 500)
-      throw exceptions.unprocessableEntity("Lambda Error - Node Confirm", response )
+    if (statusCode === 500)
+      throw exceptions.unprocessableEntity("Lambda Error - Node Confirm", response)
 
-    const body = JSON.parse(response.body) 
+    const body = JSON.parse(response.body)
     const backgroundJobs = body.action.backgroundJobs;
 
 
@@ -797,7 +797,7 @@ router.put("/node/confirm", async (req, res) => {
     }
 
 
-    await sendAllJobs(backgroundJobs,  options, BackgroundJobs)
+    await sendAllJobs(backgroundJobs, options, BackgroundJobs)
     const activedFlow = await ActivedFlow.findById(flowId);
     const newNodes = await ActivedNode.find({ flowId: flowId });
 
