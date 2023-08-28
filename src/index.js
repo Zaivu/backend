@@ -70,12 +70,11 @@ app.use('/activedtasks', activedTaskRoutes);
 // app.use(activedRoutes);
 
 
-
 const mongoUri = process.env.MONGO_URL;
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-});mongoose
+}); mongoose
 
 mongoose.connection.on('connected', () => {
   console.log('Connected to mongo api // zaivu!');
