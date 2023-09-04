@@ -15,6 +15,7 @@ const queues = Object.values(jobs).map((job) => ({
 
 
 
+
 module.exports = {
   queues,
   add(name, data, options) { // Pode passar um custom options aqui
