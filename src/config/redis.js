@@ -13,16 +13,14 @@ const redisOptions = process.env.NODE_ENV === 'development' ? {
   password: process.env.REDIS_PASSWORD,
   tls: {
     // Enable TLS/SSL
-    rejectUnauthorized: false, // You may need to set this to true depending on your certificate setup
+    // You may need to set this to true depending on your certificate setup
   },
 
 }
 
-
-
-
-
 const redisClient = new Redis(redisOptions);
+
+
 
 // Test the connection
 redisClient.on('connect', () => {
@@ -36,6 +34,4 @@ redisClient.on('error', (err) => {
 
 
 
-module.exports = {
-  redisClient,
-};
+module.exports = redisClient;
