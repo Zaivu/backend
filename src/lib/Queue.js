@@ -1,17 +1,16 @@
 const Queue = require("bull");
-const redisConfig = require("../config/redis");
+const redisOptions = require("../config/redis");
 const jobs = require("../jobs");
 const sendAllJobs = require("../utils/sendAllJobs");
 
 
 
 const queues = Object.values(jobs).map((job) => ({
-  bull: new Queue(job.key, { redis: redisConfig }),      //Fila 
+  bull: new Queue(job.key, { redis: redisOptions }),      //Fila 
   name: job.key,                              //Identificador
   handle: job.handle,                         //Processamento
   options: job.options,                       //Opções
 }));
-
 
 
 

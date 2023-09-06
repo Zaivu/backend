@@ -48,7 +48,6 @@ const nodesQueue = Queues.queues.find(q => q.name === 'ConfirmNode')
 Queues.process(BackgroundJobs)
 
 
-
 const { router } = createBullBoard([
   new BullAdapter(nodesQueue.bull),
 
