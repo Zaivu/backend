@@ -417,9 +417,6 @@ router.post("/new", checkPermission, async (req, res) => {
     const user = req.user;
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
-    // const isArray = Array.isArray;
-
-    //Elementos serão puxados diretamente da requisição
 
     if (
       !(typeof title === "string") ||
@@ -432,7 +429,7 @@ router.post("/new", checkPermission, async (req, res) => {
 
     const nowLocal = DateTime.now();
 
-    const alreadyExist = await ActivedFlow.findOne({ title });
+    const alreadyExist = await ActivedFlow.findOne({ title, isDeleted: false });
 
     if (alreadyExist) {
       throw exceptions.alreadyExists();

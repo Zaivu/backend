@@ -1,7 +1,3 @@
-// const Redis = require('ioredis');
-
-// Replace these values with your Elasticache endpoint and port
-
 
 const redisOptions = process.env.NODE_ENV === 'development' ? {
   host: process.env.REDIS_HOST,
@@ -19,20 +15,6 @@ const redisOptions = process.env.NODE_ENV === 'development' ? {
 
 
 }
-
-//const redisClient = new Redis(redisOptions);
-
-
-
-// Test the connection
-// redisClient.on('connect', () => {
-//   console.log('**************Connected to Redis!!***************');
-// });
-
-// // Handle errors
-// redisClient.on('error', (err) => {
-//   console.error('Redis Error:', err);
-// });
 
 
 
