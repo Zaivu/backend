@@ -8,7 +8,21 @@ const bcrypt = require("bcrypt");
 const router = express.Router();
 const exceptions = require("../exceptions");
 const AWS = require("aws-sdk");
+
+const Post = mongoose.model("Post");
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
+
+
+async function getAvatar(userId) {
+  let avatar = process.env.DEFAULT_PROFILE_PICTURE;
+  const hasPicture = await Post.findOne({ originalId: userId, type: "avatar" });
+
+  if (hasPicture) {
+    avatar = hasPicture.url;
+  }
+
+  return avatar;
+}
 
 //Enviar email
 async function sendEmail(fromAddress, toAddress, subject, body) {
@@ -40,13 +54,16 @@ router.post("/auth/sign-in", async (req, res) => {
       .send({ error: "Must provide username and password" });
   }
 
-  const user = await User.findOne({ email: login });
 
-  if (!user) {
-    return res.status(404).send({ error: "Invalid password or username." });
-  }
 
   try {
+
+    const user = await User.findOne({ email: login });
+
+    if (!user) {
+      return res.status(404).send({ error: "Invalid password or username." });
+    }
+
     await user.comparePassword(password);
 
     const token = jwt.sign({ userId: user._id }, secret.config.jwtSecret, {
@@ -62,10 +79,14 @@ router.post("/auth/sign-in", async (req, res) => {
 
     delete userCopy["password"];
 
+    const userId = user._id
+
+    const avatarURL = await getAvatar(userId);
+
     const response = {
       token,
       refreshToken,
-      user: userCopy,
+      user: { ...userCopy, avatarURL },
     };
 
     res.status(200).json(response);
