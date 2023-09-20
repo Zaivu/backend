@@ -10,6 +10,7 @@ const exceptions = require("../exceptions");
 const AWS = require("aws-sdk");
 
 const Post = mongoose.model("Post");
+const requireAuth = require('../middlewares/requireAuth');
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
 
 
@@ -44,6 +45,11 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
   await ses.sendEmail(params).promise();
 }
 
+router.get('/auth/verify-token', requireAuth, (req, res) => {
+  res.status(200).send({ msg: 'Login is successful' });
+})
+
+
 //Logar contar
 router.post("/auth/sign-in", async (req, res) => {
   const { login, password } = req.body;
@@ -53,8 +59,6 @@ router.post("/auth/sign-in", async (req, res) => {
       .status(422)
       .send({ error: "Must provide username and password" });
   }
-
-
 
   try {
 
@@ -88,6 +92,7 @@ router.post("/auth/sign-in", async (req, res) => {
       refreshToken,
       user: { ...userCopy, avatarURL },
     };
+
 
     res.status(200).json(response);
   } catch (err) {
@@ -205,6 +210,7 @@ router.post("/auth/new-token", async (req, res) => {
     const response = {
       token: token,
     };
+
     res.status(200).json(response);
   });
 });
@@ -213,18 +219,20 @@ router.post("/auth/new-token", async (req, res) => {
 router.get("/auth/validate-token/:token", async (req, res) => {
   const { token } = req.params;
 
+
+
   const user = await User.findOne({ resetToken: token });
 
   if (user) {
     const enterpriseUser = await User.findById(user.tenantId);
 
-    res.send({
+    res.status(200).send({
       email: user.email,
       username: user.username,
       enterpriseName: enterpriseUser.enterpriseName,
     });
   } else {
-    res.send({ error: "not find" });
+    res.status(404).send({ error: "User was not found" });
   }
 });
 
