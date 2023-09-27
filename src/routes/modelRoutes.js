@@ -35,8 +35,8 @@ router.get("/pagination/:tenantId/:page", async (req, res) => {
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
-    ? { title: 1 }
-    : { createdAt: -1 };
+      ? { title: 1 }
+      : { createdAt: -1 };
 
   try {
     // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
@@ -143,7 +143,7 @@ router.get("/flow/:flowId", async (req, res) => {
       );
     }
 
-    const flow = await FlowModel.findById(flowId);
+    const flow = await FlowModel.findOne({ _id: flowId, tenantId });
 
     if (!flow) {
       throw exceptions.entityNotFound();
@@ -198,9 +198,9 @@ router.get("/flow/:flowId", async (req, res) => {
       versions: versionModels,
     };
 
-    res.send({ flow: newFlow });
+    res.status(200).send({ flow: newFlow });
   } catch (err) {
-    console.log(err);
+    // console.log(err);
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
