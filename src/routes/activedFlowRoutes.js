@@ -263,7 +263,10 @@ router.get("/flow/:flowId", async (req, res) => {
       throw exceptions.unprocessableEntity("flowId must be a valid ObjectId");
     }
 
-    const flow = await ActivedFlow.findOne({ _id: flowId });
+    const flow = await ActivedFlow.findOne({ _id: flowId, tenantId });
+    if (!flow) {
+      throw exceptions.entityNotFound();
+    }
 
     let flowAccountable;
     const userAcc = flow.accountable?.userId ?? null;
