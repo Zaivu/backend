@@ -40,7 +40,7 @@ module.exports = {
   dest: path.resolve(__dirname, "..", "..", "tmp", "uploads"),
   storage: storageTypes[process.env.STORAGE_TYPE],
   limits: {
-    fileSize: 2 * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
@@ -48,6 +48,13 @@ module.exports = {
       "image/pjpeg",
       "image/png",
       "image/gif",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/pdf",
     ];
 
     if (allowedMimes.includes(file.mimetype)) {
