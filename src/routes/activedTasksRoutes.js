@@ -38,10 +38,10 @@ function getMomentStatus(startedAt, expirationHours, status, date) {
         ? 'doing'
         : 'late'
       : status === 'done'
-      ? diffHours > 0
-        ? 'done'
-        : 'doneLate'
-      : null;
+        ? diffHours > 0
+          ? 'done'
+          : 'doneLate'
+        : null;
 
   return {
     currentStatus,
@@ -87,9 +87,9 @@ router.get('/pagination/:page', async (req, res) => {
     const isTasksACC = tasksACC === 'true';
     const isStatusException =
       status === 'doing' ||
-      status === 'late' ||
-      status === 'pending' ||
-      status === 'done'
+        status === 'late' ||
+        status === 'pending' ||
+        status === 'done'
         ? false
         : true;
 
@@ -100,8 +100,8 @@ router.get('/pagination/:page', async (req, res) => {
     const SortedBy = isCreation
       ? { 'data.startedAt': 1 }
       : isAlpha
-      ? { 'data.label': 1 }
-      : { 'data.startedAt': -1 };
+        ? { 'data.label': 1 }
+        : { 'data.startedAt': -1 };
 
     const paginateOptions = {
       page,
@@ -185,19 +185,19 @@ router.get('/pagination/:page', async (req, res) => {
           const moment =
             taskStatus === 'doing'
               ? getMomentStatus(
-                  startedAt,
-                  hoursUntilExpiration,
-                  taskStatus,
-                  today
-                )
+                startedAt,
+                hoursUntilExpiration,
+                taskStatus,
+                today
+              )
               : taskStatus === 'done'
-              ? getMomentStatus(
+                ? getMomentStatus(
                   startedAt,
                   hoursUntilExpiration,
                   taskStatus,
                   item.data.finishedAt
                 )
-              : null;
+                : null;
 
           const task = {
             label: item.data.label,
@@ -290,6 +290,28 @@ router.put('/accountable/multiple', checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
+
+//Update task label
+router.put('/label/', async (req, res) => {
+  const { label, taskId } = req.body;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id;
+  try {
+
+    const task = await ActivedNode.findOneAndUpdate(
+      { _id: taskId, tenantId },
+      { 'data.label': label },
+      { new: true }
+    );
+
+    res.status(200).send({ taskId: task._id, label: task.data.label })
+  } catch (err) {
+    const code = err.code ? err.code : '412';
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+
 
 //Remove task Accountable
 router.delete('/accountable/:id', checkPermission, async (req, res) => {
