@@ -95,6 +95,7 @@ router.get("/list/", async (req, res) => {
     }
 
     const projects = await FlowModel.find({
+      isDeleted: false,
       tenantId,
     });
 
