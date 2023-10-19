@@ -9,7 +9,7 @@ const { DateTime } = require("luxon");
 const exceptions = require("../exceptions");
 const router = express.Router();
 const checkPermission = require("../middlewares/userPermission");
-const { removeAllVersionsPerma, removeModelPerma, removeAllVersionsByTag, removeModelByTag } = require("../utils/removeModels");
+const { removeAllVersionsPerma, removeModelPerma, removeAllVersionsByTag, removeModelByTag, removeMainFlow } = require("../utils/removeModels");
 
 router.use(requireAuth, checkPermission);
 
@@ -784,7 +784,13 @@ router.delete("/flow/:flowId", async (req, res) => {
       throw exceptions.entityNotFound();
     }
 
-    await removeModelPerma(current._id, { FlowModel, Node, Edge })
+    if (current.type === 'main') {
+      await removeMainFlow(current._id, { current, FlowModel, Node, Edge })
+    } else {
+      await removeModelPerma(current._id, { FlowModel, Node, Edge })
+    }
+
+
 
     res.status(200).send({
       flow: {
