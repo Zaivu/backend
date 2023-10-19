@@ -708,13 +708,16 @@ router.put("/default", async (req, res) => {
 // ? Deleta o Projeto raiz e suas versões via tag (se existirem)
 router.put("/project/:flowId", async (req, res) => {
   const { flowId } = req.params;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
+
 
   try {
     if (!ObjectID.isValid(flowId)) {
       throw exceptions.unprocessableEntity("flowId must be a valid objectID");
     }
 
-    const current = await FlowModel.findOne({ _id: flowId });
+    const current = await FlowModel.findOne({ _id: flowId, tenantId, type: 'main' });
 
     if (!current) {
       throw exceptions.entityNotFound();
@@ -768,12 +771,14 @@ router.delete("/project/permanently/:flowId", async (req, res) => {
 // ? Deleta 1 fluxo permanentemente
 router.delete("/flow/:flowId", async (req, res) => {
   const { flowId } = req.params;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
 
   try {
     if (!ObjectID.isValid(flowId)) {
       throw exceptions.unprocessableEntity("flowId must be a valid object ID");
     }
-    const current = await FlowModel.findOne({ _id: flowId });
+    const current = await FlowModel.findOne({ _id: flowId, tenantId });
 
     if (!current) {
       throw exceptions.entityNotFound();
