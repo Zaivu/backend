@@ -9,7 +9,7 @@ const { DateTime } = require("luxon");
 const exceptions = require("../exceptions");
 const router = express.Router();
 const checkPermission = require("../middlewares/userPermission");
-const { removeAllVersionsPerma, removeModelPerma } = require("../utils/removeModels");
+const { removeAllVersionsPerma, removeModelPerma, removeAllVersionsByTag, removeModelByTag } = require("../utils/removeModels");
 
 router.use(requireAuth, checkPermission);
 
@@ -708,7 +708,6 @@ router.put("/default", async (req, res) => {
 // ? Deleta o Projeto raiz e suas versões via tag (se existirem)
 router.put("/project/:flowId", async (req, res) => {
   const { flowId } = req.params;
-  let message;
 
   try {
     if (!ObjectID.isValid(flowId)) {
@@ -720,51 +719,13 @@ router.put("/project/:flowId", async (req, res) => {
     if (!current) {
       throw exceptions.entityNotFound();
     }
-
-    const allVersions = await FlowModel.find({ parentId: flowId });
-    if (allVersions) {
-      allVersions.forEach(async (item) => {
-        await Node.updateMany(
-          { flowId: item._id },
-          { $set: { isDeleted: true } },
-          { new: true }
-        );
-        await Edge.updateMany(
-          { flowId: item._id },
-          { $set: { isDeleted: true } },
-          { new: true }
-        );
-        await FlowModel.findByIdAndUpdate(
-          { _id: item.id },
-          {
-            isDeleted: true,
-          }
-        );
-      });
-    }
-    await Node.updateMany(
-      { _id: flowId },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-    await Edge.updateMany(
-      { _id: flowId },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-    await FlowModel.findByIdAndUpdate(
-      { _id: flowId },
-      {
-        isDeleted: true,
-      }
-    );
-    message = `Id: ${flowId} - Projeto deletado com sucesso.`;
+    await removeAllVersionsByTag(current._id, { FlowModel, Node, Edge })
+    await removeModelByTag(current._id, { FlowModel, Node, Edge });
 
     res.status(200).send({
       flow: {
         title: current.title,
         type: current.type,
-        message,
         flowId,
       },
     });
@@ -817,11 +778,8 @@ router.delete("/flow/:flowId", async (req, res) => {
     if (!current) {
       throw exceptions.entityNotFound();
     }
-    await removeModelPerma(current._id, { FlowModel, Node, Edge })
-    // await Node.remove({ flowId });
-    // await Edge.remove({ flowId });
-    // await FlowModel.findOneAndRemove({ _id: flowId }); 
 
+    await removeModelPerma(current._id, { FlowModel, Node, Edge })
 
     res.status(200).send({
       flow: {
