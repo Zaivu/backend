@@ -557,8 +557,8 @@ router.put("/users/reactivate", checkPermission, async (req, res) => {
       sendEmail(
         process.env.DEFAULT_SUPPORT_EMAIL,
         user.email,
-        "Redefinir senha",
-        `Para redefinir sua senha (irá expirar em uma hora o link): <a href="${process.env.APP_URL}resetpassword/${token}">Clique aqui</a>`
+        "Reativar Conta",
+        `Para Concluir a sua conta nova por favor crie uma nova sehna (o link é valido pelos proximos dois dias): <a href="${process.env.APP_URL}resetpassword/${token}">Clique aqui</a>`
       );
     });
 
