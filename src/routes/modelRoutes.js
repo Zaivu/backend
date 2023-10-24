@@ -9,6 +9,7 @@ const { DateTime } = require("luxon");
 const exceptions = require("../exceptions");
 const router = express.Router();
 const checkPermission = require("../middlewares/userPermission");
+const { removeAllVersionsPerma, removeModelPerma, removeAllVersionsByTag, removeModelByTag } = require("../utils/removeModels");
 
 router.use(requireAuth, checkPermission);
 
@@ -26,10 +27,10 @@ const sortByMark = (a, b) => {
 router.get("/pagination/:tenantId/:page", async (req, res) => {
   const { page = "1" } = req.params;
   const { title = "", alpha = false, creation = false } = req.query;
-  const user = req.user;
 
   const isAlpha = alpha === "true"; //Ordem do alfabeto
   const isCreation = creation === "true"; //Ordem de Criação
+  const user = req.user;
   const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
 
   const SortedBy = isCreation
@@ -95,6 +96,7 @@ router.get("/list/", async (req, res) => {
     }
 
     const projects = await FlowModel.find({
+      isDeleted: false,
       tenantId,
     });
 
@@ -703,66 +705,30 @@ router.put("/default", async (req, res) => {
   }
 });
 
-// ? Deleta o Projeto raiz e suas versões (se existirem)
+// ? Deleta o Projeto raiz e suas versões via tag (se existirem)
 router.put("/project/:flowId", async (req, res) => {
   const { flowId } = req.params;
-  let message;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
+
 
   try {
     if (!ObjectID.isValid(flowId)) {
       throw exceptions.unprocessableEntity("flowId must be a valid objectID");
     }
 
-    const current = await FlowModel.findOne({ _id: flowId });
+    const current = await FlowModel.findOne({ _id: flowId, tenantId, type: 'main' });
 
     if (!current) {
       throw exceptions.entityNotFound();
     }
-
-    const allVersions = await FlowModel.find({ parentId: flowId });
-    if (allVersions) {
-      allVersions.forEach(async (item) => {
-        await Node.updateMany(
-          { flowId: item._id },
-          { $set: { isDeleted: true } },
-          { new: true }
-        );
-        await Edge.updateMany(
-          { flowId: item._id },
-          { $set: { isDeleted: true } },
-          { new: true }
-        );
-        await FlowModel.findByIdAndUpdate(
-          { _id: item.id },
-          {
-            isDeleted: true,
-          }
-        );
-      });
-    }
-    await Node.updateMany(
-      { _id: flowId },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-    await Edge.updateMany(
-      { _id: flowId },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-    await FlowModel.findByIdAndUpdate(
-      { _id: flowId },
-      {
-        isDeleted: true,
-      }
-    );
-    message = `Id: ${flowId} - Projeto deletado com sucesso.`;
+    await removeAllVersionsByTag(current._id, { FlowModel, Node, Edge })
+    await removeModelByTag(current._id, { FlowModel, Node, Edge });
 
     res.status(200).send({
       flow: {
         title: current.title,
         type: current.type,
-        message,
         flowId,
       },
     });
@@ -771,31 +737,59 @@ router.put("/project/:flowId", async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-// ? Deleta 1 fluxo
+
+// ? Deleta o Projeto raiz e suas versões permanentemente (se existirem)
+router.delete("/project/permanently/:flowId", async (req, res) => {
+  const { flowId } = req.params;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
+
+  try {
+    if (!ObjectID.isValid(flowId)) {
+      throw exceptions.unprocessableEntity("flowId must be a valid objectID");
+    }
+
+    const current = await FlowModel.findOne({ _id: flowId, tenantId, type: 'main' });
+
+    if (!current) {
+      throw exceptions.entityNotFound();
+    }
+
+    await removeAllVersionsPerma(current._id, { FlowModel, Node, Edge });
+    await removeModelPerma(current._id, { FlowModel, Node, Edge })
+
+    res.status(200).send({
+      current,
+    });
+  } catch (err) {
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+
+// ? Deleta 1 fluxo permanentemente
 router.delete("/flow/:flowId", async (req, res) => {
   const { flowId } = req.params;
-  let message;
+  const user = req.user;
+  const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
 
   try {
     if (!ObjectID.isValid(flowId)) {
       throw exceptions.unprocessableEntity("flowId must be a valid object ID");
     }
-    const current = await FlowModel.findOne({ _id: flowId });
+    const current = await FlowModel.findOne({ _id: flowId, tenantId });
 
     if (!current) {
       throw exceptions.entityNotFound();
     }
 
-    await Node.remove({ flowId });
-    await Edge.remove({ flowId });
-    await FlowModel.findOneAndRemove({ _id: flowId });
-    message = `Id: ${flowId} - Versão deletada com sucesso.`;
+    await removeModelPerma(current._id, { FlowModel, Node, Edge })
 
     res.status(200).send({
       flow: {
         title: current.title,
         type: current.type,
-        message,
         flowId,
       },
     });
@@ -804,5 +798,8 @@ router.delete("/flow/:flowId", async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
+
+
+
 
 module.exports = router;
