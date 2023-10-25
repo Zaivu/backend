@@ -1,4 +1,5 @@
 
+
 module.exports = {
 
     removeAllVersionsPerma: async function (flowId, { FlowModel, Node, Edge }) {
@@ -18,10 +19,13 @@ module.exports = {
         return { flowId }
     },
 
-    removeMainFlow: async function (flowId, { current, FlowModel, Node, Edge }) {
+    //Remove um modelo do tipo 'main'
+    removeMainFlow: async function (current, { FlowModel, Node, Edge }) {
+
+        const flowId = current._id;
 
         const allVersions = await FlowModel.find({ parentId: flowId, type: 'version' });
-
+        let mainVersion;
         // Verifica se não há versões para substituir a versão base 
         if (allVersions.length > 0) {
 
@@ -32,100 +36,44 @@ module.exports = {
             }, allVersions[0]);
 
             //A versão mais antiga será utilizada como a nova base
-            await FlowModel.findByIdAndUpdate(
+
+            mainVersion = await FlowModel.findByIdAndUpdate(
                 { _id: minDateVersion._id },
                 {
-                    default: current.default !== minDateVersion._id ? current.default : null,
+                    default: current.default && JSON.stringify(current.default)
+                        !== JSON.stringify(minDateVersion._id)
+                        ? current.default : null,
                     type: 'main',
                     parentId: null,
-                    title: current.title,
-                }, { new: true })
+                },
+                { new: true })
 
+            // Update the new ParentId
+            await Promise.all(allVersions.map(async (version) => {
+                if (version._id !== minDateVersion._id) {
+                    await FlowModel.findByIdAndUpdate(
+                        { _id: version._id },
+                        { parentId: minDateVersion._id },
+                        { new: true }
+                    )
+                }
+            }))
         }
-        await this.removeModelPerma(flowId, { FlowModel, Node, Edge })
+
+        //Remove the main Version
+        await Node.remove({ flowId });
+        await Edge.remove({ flowId });
+        await FlowModel.findOneAndRemove({ _id: flowId });
+
+        return { flowId: mainVersion?._id, default: mainVersion?.default }
 
 
     },
 
-    removeAllVersionsByTag: async function (flowId, { FlowModel, Node, Edge }) {
-        const allVersions = await FlowModel.find({ parentId: flowId, type: 'version' });
-        return Promise.all(allVersions.map(async (item) => {
-            await Node.updateMany(
-                { flowId: item._id },
-                { $set: { isDeleted: true } },
-                { new: true }
-            );
-            await Edge.updateMany(
-                { flowId: item._id }, { $set: { isDeleted: true } }, { new: true }
-            );
-            await FlowModel.findByIdAndUpdate(
-                { _id: item._id }, { isDeleted: true }, { new: true }
-            );
 
-        }))
-    },
 
-    removeModelByTag: async function (flowId, { FlowModel, Node, Edge }) {
 
-        await Node.updateMany(
-            { _id: flowId },
-            { $set: { isDeleted: true } },
-            { new: true }
-        );
-        await Edge.updateMany(
-            { _id: flowId },
-            { $set: { isDeleted: true } },
-            { new: true }
-        );
-        await FlowModel.findByIdAndUpdate(
-            { _id: flowId },
-            {
-                isDeleted: true,
-            },
-            { new: true }
-        );
 
-        return { flowId };
-    },
 
-    restoreModelByTag: async function (flowId, { FlowModel, Node, Edge }) {
-        await Node.updateMany(
-            { _id: flowId },
-            { $set: { isDeleted: false } },
-            { new: true }
-        );
-        await Edge.updateMany(
-            { _id: flowId },
-            { $set: { isDeleted: false } },
-            { new: true }
-        );
-        await FlowModel.findByIdAndUpdate(
-            { _id: flowId },
-            {
-                isDeleted: false,
-            },
-            { new: true }
-        );
-
-        return { flowId };
-    },
-
-    restoreAllVersionsByTag: async function (flowId, { FlowModel, Node, Edge }) {
-        const allVersions = await FlowModel.find({ parentId: flowId, type: 'version' });
-        return Promise.all(allVersions.map(async (item) => {
-            await Node.updateMany(
-                { flowId: item._id },
-                { $set: { isDeleted: false } },
-                { new: true }
-            );
-            await Edge.updateMany(
-                { flowId: item._id }, { $set: { isDeleted: false } }, { new: true }
-            );
-            await FlowModel.findByIdAndUpdate(
-                { _id: item.id }, { isDeleted: false }, { new: true }
-            );
-
-        }))
-    },
 
 }
