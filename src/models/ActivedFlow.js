@@ -9,7 +9,8 @@ const activedFlowSchema = new mongoose.Schema({
     type: String,
   },
   status: {
-    type: String,
+    type: Array,
+    default: [],
   },
   createdAt: {
     type: Date,
