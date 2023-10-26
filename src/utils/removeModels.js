@@ -65,7 +65,12 @@ module.exports = {
         await Edge.remove({ flowId });
         await FlowModel.findOneAndRemove({ _id: flowId });
 
-        return { flowId: mainVersion?._id, default: mainVersion?.default }
+
+        if (mainVersion) {
+            return { flowId: mainVersion._id, default: mainVersion.default }
+        } else {
+            return false;
+        }
 
 
     },

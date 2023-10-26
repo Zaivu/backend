@@ -763,14 +763,12 @@ router.delete("/flow/:flowId", async (req, res) => {
       await removeModelPerma(current._id, schemas)
     }
 
-
-
     res.status(200).send({
       flow: {
         title: current.title,
         type: current.type,
         flowId,
-        baseModel: mainVersion,
+        baseModel: mainVersion ? mainVersion : null,
       },
     });
   } catch (err) {
