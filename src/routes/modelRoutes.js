@@ -45,7 +45,7 @@ router.get("/pagination/:tenantId/:page", async (req, res) => {
     const paginateOptions = {
       page,
       limit: 4,
-      sort: SortedBy, // ultimas instancias
+      sort: { ...SortedBy, _id: 1 } // ultimas instancias
     };
 
     const Pagination = await FlowModel.paginate(

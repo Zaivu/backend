@@ -131,7 +131,7 @@ router.get("/pagination/:page", checkPermission, async (req, res) => {
     const paginateOptions = {
       page,
       limit: 4,
-      sort: SortedBy, // ultimas instancias
+      sort: { ...SortedBy, _id: 1 }, // ultimas instancias
     };
 
     const Pagination = await ActivedFlow.paginate(
@@ -250,6 +250,7 @@ router.get("/pagination/history/:page", checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
+
 
 //Single Flow
 router.get("/flow/:flowId", async (req, res) => {

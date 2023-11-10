@@ -106,7 +106,7 @@ router.get('/pagination/:page', async (req, res) => {
     const paginateOptions = {
       page,
       limit: 10,
-      sort: SortedBy, // ultimas instancias
+      sort: { ...SortedBy, _id: 1 }, // ultimas instancias
     };
 
     const allProjects = await ActivedFlow.find({
@@ -199,6 +199,8 @@ router.get('/pagination/:page', async (req, res) => {
                 )
                 : null;
 
+
+
           const task = {
             label: item.data.label,
             _id: item._id,
@@ -227,6 +229,8 @@ router.get('/pagination/:page', async (req, res) => {
       totalPages,
       today,
     };
+
+
 
     res.send(response).status(200);
   } catch (err) {
