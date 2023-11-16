@@ -25,16 +25,21 @@ const cors = require('cors');
 const path = require('path');
 const Queues = require('./lib/Queue')
 const app = express();
+const setupSocketServer = require('./websockets/server')
 const { ExpressAdapter } = require('@bull-board/express');
 const { createBullBoard } = require('bull-board')
-
 const { BullAdapter } = require('bull-board/bullAdapter')
+
+
+//Websockets 
+
+
+const httpServer = setupSocketServer(app);
+
+
+
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/admin/queues');
-
-
-
-
 
 //middlewares
 app.use(cors());
@@ -67,7 +72,6 @@ app.use('/modelflows', modelRoutes);
 app.use('/activedflows', activedFlowRoutes);
 app.use('/activedtasks', activedTaskRoutes);
 
-// app.use(activedRoutes);
 
 
 const mongoUri = process.env.MONGO_URL;
@@ -83,6 +87,6 @@ mongoose.connection.on('error', (err) => {
   console.error('Error connecting to mongo api', err);
 });
 
-app.listen(process.env.PORT || 5000, () => {
+httpServer.listen(process.env.PORT || 5000, () => {
   console.log('Listening on port 5000');
 });

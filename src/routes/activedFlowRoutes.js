@@ -24,8 +24,9 @@ const multer = require("multer");
 const checkPermission = require("../middlewares/userPermission");
 const { confirmNode } = require("../lambdas/confirm-node");
 const sendAllJobs = require("../utils/sendAllJobs");
-// const Queue = require('../lib/Queue')
+const extractMentions = require("../utils/extractMentions");
 
+const { getIO } = require('../websockets/socket');
 
 router.use(requireAuth);
 
@@ -628,6 +629,26 @@ router.post("/chat/new", async (req, res) => {
       message,
       type,
     };
+
+
+    const mentionedUsers = extractMentions(message);
+    // const io = getIO();
+
+
+
+
+    // mentionedUsers.forEach((mentionedUser) => {
+    //   const socketId = userToSocketMap[mentionedUser.id];
+    //   console.log(socketId)
+
+    //   // io.to(mentionedUser).emit('notification', {
+    //   //   from: userId,
+    //   //   message: `Você foi mencionado em uma mensagem: ${message}`
+    //   // });
+    // });
+
+
+    //console.log({ mentionedUsers, io })
 
     const model = new ChatMessage({
       ...baseModel,
