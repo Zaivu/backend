@@ -25,8 +25,7 @@ const checkPermission = require("../middlewares/userPermission");
 const { confirmNode } = require("../lambdas/confirm-node");
 const sendAllJobs = require("../utils/sendAllJobs");
 const extractMentions = require("../utils/extractMentions");
-
-const { getIO } = require('../websockets/socket');
+const sendToConnectedUsers = require("../websockets/functions/sendToConnectedUsers");
 
 router.use(requireAuth);
 
@@ -632,23 +631,7 @@ router.post("/chat/new", async (req, res) => {
 
 
     const mentionedUsers = extractMentions(message);
-    // const io = getIO();
-
-
-
-
-    // mentionedUsers.forEach((mentionedUser) => {
-    //   const socketId = userToSocketMap[mentionedUser.id];
-    //   console.log(socketId)
-
-    //   // io.to(mentionedUser).emit('notification', {
-    //   //   from: userId,
-    //   //   message: `Você foi mencionado em uma mensagem: ${message}`
-    //   // });
-    // });
-
-
-    //console.log({ mentionedUsers, io })
+    sendToConnectedUsers(mentionedUsers, userId, message)
 
     const model = new ChatMessage({
       ...baseModel,

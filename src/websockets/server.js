@@ -9,7 +9,6 @@ module.exports = function (app) {
     const httpServer = createServer(app);
     const io = init(httpServer)
 
-
     io.use(socketAuth)
     io.on("connection", (socket) => {
         const { userId } = socket.decoded;
