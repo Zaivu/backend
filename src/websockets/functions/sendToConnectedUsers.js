@@ -1,14 +1,19 @@
 const { getIO, getConnectedUsers } = require("../socket");
 
-module.exports = function (mentionedUsers, userId, msg) {
+module.exports = function (mentionedUsers, options, userId) {
     const io = getIO();
     const connectedUsers = getConnectedUsers();
+
+    const { content: msg, refId, type } = options;
 
     mentionedUsers.forEach((mentionedUser) => {
         const socketId = connectedUsers[mentionedUser.id];
         io.to(socketId).emit('notification', {
             from: userId,
-            message: `Você foi mencionado em uma mensagem: ${msg}`
+            message: msg,
+            refId,
+            type,
+
         });
     });
 }

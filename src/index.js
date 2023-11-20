@@ -32,14 +32,10 @@ const { BullAdapter } = require('bull-board/bullAdapter')
 
 
 //Websockets 
-
-
 const httpServer = setupSocketServer(app);
 
-
-
 const serverAdapter = new ExpressAdapter();
-serverAdapter.setBasePath('/admin/queues');
+
 
 //middlewares
 app.use(cors());
@@ -53,11 +49,12 @@ const nodesQueue = Queues.queues.find(q => q.name === 'ConfirmNode')
 Queues.process(BackgroundJobs)
 
 
+//Bull Queue 
+serverAdapter.setBasePath('/admin/queues');
 const { router } = createBullBoard([
   new BullAdapter(nodesQueue.bull),
 
 ])
-
 app.use('/admin/queues', router)
 
 app.get('/', (req, res) => {

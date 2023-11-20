@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const mentionsMiddleware = require('../middlewares/mentions')
+
 //mongoose.Schema.Types.ObjectId,
 const chatMessageSchema = new mongoose.Schema({
   userId: {
@@ -27,4 +29,11 @@ const chatMessageSchema = new mongoose.Schema({
   },
 });
 
-module.export =  mongoose.model('ChatMessage', chatMessageSchema);
+
+chatMessageSchema.pre('save', mentionsMiddleware);
+
+
+module.export = mongoose.model('ChatMessage', chatMessageSchema);
+
+
+

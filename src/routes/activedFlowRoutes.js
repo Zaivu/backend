@@ -22,10 +22,9 @@ const User = mongoose.model("User");
 const multerConfig = require("../config/multer");
 const multer = require("multer");
 const checkPermission = require("../middlewares/userPermission");
-const { confirmNode } = require("../lambdas/confirm-node");
 const sendAllJobs = require("../utils/sendAllJobs");
-const extractMentions = require("../utils/extractMentions");
-const sendToConnectedUsers = require("../websockets/functions/sendToConnectedUsers");
+const { confirmNode } = require("../lambdas/confirm-node");
+
 
 router.use(requireAuth);
 
@@ -630,9 +629,6 @@ router.post("/chat/new", async (req, res) => {
     };
 
 
-    const mentionedUsers = extractMentions(message);
-    sendToConnectedUsers(mentionedUsers, userId, message)
-
     const model = new ChatMessage({
       ...baseModel,
       createdAt: DateTime.now(),
@@ -643,6 +639,7 @@ router.post("/chat/new", async (req, res) => {
     const plainChat = chatMessage.toObject({ getters: true, virtuals: true });
     res.send({ chatMessage: { ...plainChat, avatarURL } });
   } catch (err) {
+    console.log(err)
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
