@@ -17,7 +17,7 @@ module.exports = async function (next) {
             sendBy: this.userId,
             refId: this.refId,
             content: this.message, //opcional
-            type: 'mention'
+            type: this.type === 'task' ? 'task_mention' : 'flow_mention'
         }
 
         const liveModel = new Notification({
@@ -28,7 +28,7 @@ module.exports = async function (next) {
         });
 
         await liveModel.save();
-        sendToConnectedUsers(mentionedUsers, baseModel, this.userId)
+        sendToConnectedUsers(mentionedUsers, liveModel, this.userId)
     }
 
     next();

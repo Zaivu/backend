@@ -12,7 +12,7 @@ const notificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['mention', 'flow'],
+        enum: ['task_mention', 'flow_mention', 'task_status', 'flow_status'],
         required: true
     },
     refId: {

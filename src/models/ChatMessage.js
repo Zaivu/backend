@@ -8,7 +8,7 @@ const chatMessageSchema = new mongoose.Schema({
     required: true,
   },
   refId: {
-    type: String,
+    type: String, //flowId | taskId
     required: true,
   },
   username: {
@@ -24,7 +24,7 @@ const chatMessageSchema = new mongoose.Schema({
     required: true,
   },
   type: {
-    type: String,
+    type: String, //flow | task
     required: true,
   },
 });

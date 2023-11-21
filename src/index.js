@@ -10,7 +10,7 @@ require('./models/Post');
 require('./models/ChatMessage');
 require('./models/BackgroundJobs')
 
-//
+//express
 const express = require('express');
 const mongoose = require('mongoose');
 
@@ -20,6 +20,10 @@ const activedFlowRoutes = require('./routes/activedFlowRoutes');
 const authRoutes = require('./routes/authRoutes');
 const usersRoutes = require('./routes/usersRoutes');
 const activedTaskRoutes = require('./routes/activedTasksRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+
+
+// utils
 const BackgroundJobs = require('./models/BackgroundJobs')
 const cors = require('cors');
 const path = require('path');
@@ -65,6 +69,7 @@ app.get('/', (req, res) => {
 
 app.use(authRoutes);
 app.use(usersRoutes);
+app.use(notificationRoutes)
 app.use('/modelflows', modelRoutes);
 app.use('/activedflows', activedFlowRoutes);
 app.use('/activedtasks', activedTaskRoutes);
