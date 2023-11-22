@@ -18,9 +18,9 @@ class NotificationController {
     }
 
     async findByUser(req, res) {
-        const { userId } = req.params;
-
         try {
+            const { _id: userId } = req.user;
+
 
             const notifications = await this.notificationService.findByUser(userId)
             res.status(200).send(notifications);
@@ -33,7 +33,35 @@ class NotificationController {
         }
     }
 
-    // Adicione outros métodos conforme necessário
+    async markOneAsRead(req, res) {
+        const { notificationId, userId } = req.body;
+        try {
+
+            const notification = await this.notificationService.markOneAsRead(notificationId, userId);
+
+            res.status(201).send(notification);
+        } catch (error) {
+            const code = error.code ? error.code : "412";
+            res.status(code).send({ error: error.message, code });
+        }
+
+    }
+    async markAllAsRead(req, res) {
+        try {
+
+            const { notificationIds, userId } = req.body;
+
+            // P/ notificationIds = [...{id}]  
+
+            await this.notificationService.markAllAsRead(notificationIds, userId);
+
+            res.status(20).send({ message: 'Todas as notificações marcadas como lidas' });
+        } catch (error) {
+            const code = error.code ? error.code : "412";
+            res.status(code).send({ error: error.message, code });
+        }
+
+    }
 }
 
 module.exports = NotificationController;

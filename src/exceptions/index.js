@@ -1,6 +1,7 @@
 module.exports = {
-  entityNotFound: () => {
-    const error = new Error('Entidade não encontrada.');
+  entityNotFound: (msg = null) => {
+    const message = msg ? ' - ' + msg : '';
+    const error = new Error('Entidade não encontrada. ' + message);
     error.code = '404';
 
     return error;

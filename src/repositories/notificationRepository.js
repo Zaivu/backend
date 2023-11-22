@@ -3,16 +3,23 @@ const Notification = require('../models/Notification')
 class NotificationsRepository {
     async create(notificationData) {
         const notification = new Notification(notificationData);
-        return notification.save();
+        return await notification.save();
     }
 
     async findByUser(id) {
 
-
-        return Notification.find({ 'readBy.userId': id }).exec();
+        return await Notification.find({ 'readBy.userId': id, 'readBy.read': false }).exec();
     }
 
-    // Implemente outros métodos CRUD aqui
+    async findById(id) {
+        return await Notification.findById(id).exec();
+    }
+
+    async updateOne(id, data) {
+        return await Notification.findByIdAndUpdate(id, data, { new: true }).exec();
+    }
+
+
 }
 
 module.exports = NotificationsRepository;
