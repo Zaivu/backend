@@ -27,6 +27,8 @@ class NotificationController {
 
         }
         catch (error) {
+            console.log(error)
+
             const code = error.code ? error.code : "412";
             res.status(code).send({ error: error.message, code });
 
@@ -62,6 +64,7 @@ class NotificationController {
         }
 
     }
+
 }
 
 module.exports = NotificationController;

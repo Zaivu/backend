@@ -57,4 +57,4 @@ const activedFlowSchema = new mongoose.Schema({
 });
 
 activedFlowSchema.plugin(mongoosePaginate);
-module.export = mongoose.model("ActivedFlow", activedFlowSchema);
+module.exports = mongoose.model("ActivedFlow", activedFlowSchema);

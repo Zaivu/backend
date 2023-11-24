@@ -15,9 +15,20 @@ const notificationSchema = new mongoose.Schema({
         enum: ['task_mention', 'flow_mention', 'task_status', 'flow_status'],
         required: true
     },
-    refId: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
+    ref: {
+        _id: false,
+        taskId: {
+            ref: "ActivedNode",
+            type: mongoose.Schema.Types.ObjectId,
+            default: null,
+
+        },
+        flowId: {
+            ref: "ActivedFlow",
+            type: mongoose.Schema.Types.ObjectId,
+            required: true,
+        },
+
     },
     sendBy: {
         ref: 'User',

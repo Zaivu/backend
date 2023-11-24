@@ -12,7 +12,12 @@ class NotificationService {
 
 
     async findByUser(userId) {
-        return await this.notificationRepository.findByUser(userId)
+        const notifications = await this.notificationRepository.findByUser(userId)
+        const notificationsData = await Promise.all(notifications.map(async (notification) =>
+            await this.notificationRepository.findNotificationData(notification)
+        ))
+
+        return notificationsData;
     }
 
     async markOneAsRead(notificationId, userId) {

@@ -23,6 +23,7 @@ const multerConfig = require("../config/multer");
 const multer = require("multer");
 const checkPermission = require("../middlewares/userPermission");
 const sendAllJobs = require("../utils/sendAllJobs");
+const sendMentions = require("../utils/sendMentions")
 const { confirmNode } = require("../lambdas/confirm-node");
 
 
@@ -616,13 +617,14 @@ router.post("/new", checkPermission, async (req, res) => {
 //Send Chat Message
 router.post("/chat/new", async (req, res) => {
   try {
-    const { userId, refId, username, message, type } = req.body;
+    const { userId, username, message, type, ref } = req.body;
+
 
     const avatarURL = await getAvatar(userId);
 
     const baseModel = {
       userId,
-      refId,
+      refId: type === 'task' ? ref.taskId : ref.flowId,
       username,
       message,
       type,
@@ -634,7 +636,10 @@ router.post("/chat/new", async (req, res) => {
       createdAt: DateTime.now(),
     });
 
+
     const chatMessage = await model.save();
+    await sendMentions(chatMessage, ref);
+
 
     const plainChat = chatMessage.toObject({ getters: true, virtuals: true });
     res.send({ chatMessage: { ...plainChat, avatarURL } });
