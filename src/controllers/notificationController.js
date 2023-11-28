@@ -20,9 +20,11 @@ class NotificationController {
     async findByUser(req, res) {
         try {
             const { _id: userId } = req.user;
+            const { type } = req.query;
 
+            // console.log(req.query);
 
-            const notifications = await this.notificationService.findByUser(userId)
+            const notifications = await this.notificationService.findByUser(userId, type)
             res.status(200).send(notifications);
 
         }
@@ -51,11 +53,9 @@ class NotificationController {
     async markAllAsRead(req, res) {
         try {
 
-            const { notificationIds, userId } = req.body;
+            const { type, userId } = req.body;
 
-            // P/ notificationIds = [...{id}]  
-
-            await this.notificationService.markAllAsRead(notificationIds, userId);
+            await this.notificationService.markAllAsRead(type, userId);
 
             res.status(20).send({ message: 'Todas as notificações marcadas como lidas' });
         } catch (error) {

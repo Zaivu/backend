@@ -10,9 +10,9 @@ class NotificationsRepository {
 
 
     //Procura todas as notificações não lidas por um usuário
-    async findByUser(id) {
+    async findByUser(id, type) {
 
-        return await Notification.find({ 'readBy.userId': id, 'readBy.read': false }).exec();
+        return await Notification.find({ 'readBy.userId': id, 'readBy.read': false, ...(type && { type }) }).exec();
     }
 
     //Procura por um notificação por id

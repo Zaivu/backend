@@ -10,47 +10,11 @@ const ChatMessage = mongoose.model('ChatMessage');
 const exceptions = require('../exceptions');
 const router = express.Router();
 const checkPermission = require('../middlewares/userPermission');
+const getMomentStatus = require('../utils/getMomentStatus');
 
 router.use(requireAuth);
 
-function getMomentStatus(startedAt, expirationHours, status, date) {
-  //date é a data de comparação, pode ser hoje ou a data de conclusão
-  //da tarefa
 
-  let compareDate = date;
-
-  if (status === 'done') {
-    compareDate = DateTime.fromMillis(date);
-  }
-
-  const start = DateTime.fromMillis(startedAt);
-
-  const deadlineDate = start.plus({ hours: expirationHours });
-
-  const diffHours = deadlineDate.diff(compareDate, 'hours').hours;
-  const diffDays = deadlineDate.diff(compareDate, 'days').days;
-
-  //Calculo básico -> startedAt + expirationTime = data final  -> milissegundos
-
-  const currentStatus =
-    status === 'doing'
-      ? diffHours > 0
-        ? 'doing'
-        : 'late'
-      : status === 'done'
-        ? diffHours > 0
-          ? 'done'
-          : 'doneLate'
-        : null;
-
-  return {
-    currentStatus,
-    diffHours,
-    diffDays,
-    deadline: status === 'doing' ? deadlineDate.toMillis() : null,
-    finishedAt: status === 'done' ? date : null,
-  };
-}
 
 async function getAvatar(userId) {
   let avatar = process.env.DEFAULT_PROFILE_PICTURE;
@@ -178,26 +142,7 @@ router.get('/pagination/:page', async (req, res) => {
             };
           }
 
-          const startedAt = item.data.startedAt;
-          const hoursUntilExpiration = item.data.expiration.number;
-
-          const taskStatus = item.data.status;
-          const moment =
-            taskStatus === 'doing'
-              ? getMomentStatus(
-                startedAt,
-                hoursUntilExpiration,
-                taskStatus,
-                today
-              )
-              : taskStatus === 'done'
-                ? getMomentStatus(
-                  startedAt,
-                  hoursUntilExpiration,
-                  taskStatus,
-                  item.data.finishedAt
-                )
-                : null;
+          const moment = getMomentStatus(item);
 
 
 

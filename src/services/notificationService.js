@@ -11,8 +11,8 @@ class NotificationService {
     }
 
 
-    async findByUser(userId) {
-        const notifications = await this.notificationRepository.findByUser(userId)
+    async findByUser(userId, type) {
+        const notifications = await this.notificationRepository.findByUser(userId, type)
         const notificationsData = await Promise.all(notifications.map(async (notification) =>
             await this.notificationRepository.findNotificationData(notification)
         ))
@@ -44,23 +44,22 @@ class NotificationService {
 
     }
 
-    async markAllAsRead(notificationIds, userId) {
+    async markAllAsRead(userId, type) {
 
-        for (const id of notificationIds) {
+        const notifications = await this.notificationRepository.findByUser(userId, type)
+
+
+        for (const id of notifications) {
 
             const notification = await this.notificationRepository.findById(id);
 
-            if (!notification)
-                throw exceptions.entityNotFound(`id: ${id} not found on Notification Repository`)
-
             const user = notification.readBy.find(user => user.userId.toString() === userId);
-            if (!user)
-                throw exceptions.entityNotFound(`userId: ${userId} in Notification (${id})`)
-
 
             user.read = true;
 
-            await this.notificationRepository.update(id, notification)
+            // await this.notificationRepository.update(id, notification)
+
+            // console.log(notification)
 
         }
 
