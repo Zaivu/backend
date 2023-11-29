@@ -12,7 +12,14 @@ class NotificationsRepository {
     //Procura todas as notificações não lidas por um usuário
     async findByUser(id, type) {
 
-        return await Notification.find({ 'readBy.userId': id, 'readBy.read': false, ...(type && { type }) }).exec();
+        return await Notification.find({
+            'readBy': {
+                $elemMatch: {
+                    'userId': id.toString(),
+                    'read': false
+                }
+            }, ...(type && { type })
+        }).exec();
     }
 
     //Procura por um notificação por id
@@ -23,7 +30,8 @@ class NotificationsRepository {
 
     //Atualiza uma notificação com dados de notificação
     async update(id, data) {
-        return await Notification.findByIdAndUpdate(id, data, { new: true }).exec();
+        const notification = await Notification.findByIdAndUpdate(id, data, { new: true }).exec();
+        return notification
     }
 
     //Procura informações que auxiliam na identificação da notificação

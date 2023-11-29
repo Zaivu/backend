@@ -38,7 +38,8 @@ class NotificationController {
     }
 
     async markOneAsRead(req, res) {
-        const { notificationId, userId } = req.body;
+        const { notificationId } = req.body;
+        const { _id: userId } = req.user;
         try {
 
             const notification = await this.notificationService.markOneAsRead(notificationId, userId);
@@ -52,13 +53,17 @@ class NotificationController {
     }
     async markAllAsRead(req, res) {
         try {
+            const { _id: userId } = req.user;
+            const { type } = req.body;
 
-            const { type, userId } = req.body;
+            const response = await this.notificationService.markAllAsRead(userId, type);
 
-            await this.notificationService.markAllAsRead(type, userId);
-
-            res.status(20).send({ message: 'Todas as notificações marcadas como lidas' });
+            res.status(200).send({
+                message: 'Todas as notificações foram marcadas como lidas',
+                data: response
+            });
         } catch (error) {
+            console.log(error)
             const code = error.code ? error.code : "412";
             res.status(code).send({ error: error.message, code });
         }

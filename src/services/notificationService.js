@@ -22,24 +22,25 @@ class NotificationService {
 
     async markOneAsRead(notificationId, userId) {
 
-        const notification = await this.notificationRepository.findById(notificationId);
+        let notification = await this.notificationRepository.findById(notificationId);
 
         if (!notification) {
             throw exceptions.entityNotFound('Notification')
         }
 
-        const user = notification.readby.find(user =>
-            user.userId.toString() === userId)
+        notification.readBy = notification.readBy.map(item => {
+            if (item.userId.toString() === userId.toString()) {
+                item.read = true;
+            }
+            return item;
+        })
 
+        const data = notification;
+        const id = notification._id;
 
-        if (!user) {
-            throw exceptions.entityNotFound(`userId: ${userId} in Notification(${notificationId})`)
-        }
+        const updatedNotification = await this.notificationRepository.update(id, data)
 
-        user.read = true;
-
-
-        return await this.notificationRepository.update(notificationId, notification)
+        return updatedNotification;
 
 
     }
@@ -48,23 +49,25 @@ class NotificationService {
 
         const notifications = await this.notificationRepository.findByUser(userId, type)
 
+        for (let notification of notifications) {
+            notification.readBy = notification.readBy.map(item => {
+                if (item.userId.toString() === userId.toString()) {
+                    item.read = true;
+                }
+                return item;
+            })
 
-        for (const id of notifications) {
+            const data = notification;
+            const id = notification._id;
 
-            const notification = await this.notificationRepository.findById(id);
-
-            const user = notification.readBy.find(user => user.userId.toString() === userId);
-
-            user.read = true;
-
-            // await this.notificationRepository.update(id, notification)
-
-            // console.log(notification)
+            await this.notificationRepository.update(id, data)
 
         }
 
-        return true;
 
+
+
+        return notifications
 
     }
 }

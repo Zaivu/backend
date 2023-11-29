@@ -3,6 +3,8 @@ const getAvatar = require('../utils/getUserAvatar');
 const ActivedFlow = require('../models/ActivedFlow');
 const ActivedNode = require('../models/ActivedNode');
 const getMomentStatus = require('./getMomentStatus');
+
+
 module.exports = async function (notification) {
 
     const { ref, sendBy, content, createdAt, type } = notification;
@@ -14,6 +16,7 @@ module.exports = async function (notification) {
 
 
     const project = await ActivedFlow.findById(flowId).exec()
+
 
     if (taskId) {
         activedTask = await ActivedNode.findById(taskId).exec();
