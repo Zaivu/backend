@@ -37,11 +37,13 @@ router.get('/pagination/:page', async (req, res) => {
     flowTitle = '',
     label = '',
     client = '',
+    taskId=false,
     alpha = false,
     creation = false,
     status = 'doing', // 'doing' || 'late' || 'pending || done'
     tasksACC = true,
   } = req.query;
+
 
   try {
     const today = DateTime.now();
@@ -49,6 +51,8 @@ router.get('/pagination/:page', async (req, res) => {
     const isAlpha = alpha === 'true'; //Ordem do alfabeto
     const isCreation = creation === 'true'; //Ordem de Criação
     const isTasksACC = tasksACC === 'true';
+    const isTaskID = taskId === 'null' ? null : taskId;
+
     const isStatusException =
       status === 'doing' ||
         status === 'late' ||
@@ -77,7 +81,11 @@ router.get('/pagination/:page', async (req, res) => {
       isDeleted: false,
       client: { $regex: client, $options: 'i' },
       title: { $regex: flowTitle, $options: 'i' },
+      tenantId: tenantId
+
     });
+
+
 
     const projects = allProjects.map(
       (item) => (item = { title: item.title, flowId: item._id })
@@ -94,6 +102,7 @@ router.get('/pagination/:page', async (req, res) => {
       type: 'task',
       'data.label': { $regex: label, $options: 'i' },
       'data.status': currentStatus,
+      ...(isTaskID && { _id: taskId })
     };
 
     if (currentStatus === 'doing') {
