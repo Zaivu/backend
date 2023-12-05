@@ -22,8 +22,6 @@ class NotificationController {
             const { _id: userId } = req.user;
             const { type } = req.query;
 
-            // console.log(req.query);
-
             const notifications = await this.notificationService.findByUser(userId, type)
             res.status(200).send(notifications);
 
@@ -38,7 +36,7 @@ class NotificationController {
     }
 
     async markOneAsRead(req, res) {
-        const { notificationId } = req.body;
+        const { notificationId } = req.param;
         const { _id: userId } = req.user;
         try {
 
