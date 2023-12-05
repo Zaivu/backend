@@ -12,13 +12,13 @@ class NotificationService {
 
 
     async findByUser(userId, type) {
-        const notifications = await this.notificationRepository.findByUser(userId, type)
-        const notificationsData = await Promise.all(notifications.map(async (notification) =>
-            await this.notificationRepository.findNotificationData(notification)
-        ))
-
-        return notificationsData;
+        const notifications = await this.notificationRepository.findByUser(userId, type);
+        const notificationsData = await Promise.all(
+            notifications.map(notification => this.notificationRepository.findNotificationData(notification))
+        );
+        return notificationsData.filter(Boolean);
     }
+
 
     async markOneAsRead(notificationId, userId) {
 
@@ -41,7 +41,6 @@ class NotificationService {
         const updatedNotification = await this.notificationRepository.update(id, data)
 
         return updatedNotification;
-
 
     }
 

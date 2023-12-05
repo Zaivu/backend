@@ -36,10 +36,10 @@ class NotificationController {
     }
 
     async markOneAsRead(req, res) {
-        const { notificationId } = req.param;
+        const { notificationId } = req.params;
         const { _id: userId } = req.user;
-        try {
 
+        try {
             const notification = await this.notificationService.markOneAsRead(notificationId, userId);
 
             res.status(201).send(notification);

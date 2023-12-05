@@ -7,7 +7,7 @@ const getMomentStatus = require('./getMomentStatus');
 
 module.exports = async function (notification) {
 
-    const { ref, sendBy, content, createdAt, type } = notification;
+    const { ref, sendBy, content, createdAt, type, _id } = notification;
     const { flowId, taskId } = ref;
 
     //Em caso de tarefa (opcional)
@@ -16,6 +16,9 @@ module.exports = async function (notification) {
 
 
     const project = await ActivedFlow.findById(flowId).exec()
+
+    if (!project)
+        return
 
 
     if (taskId) {
@@ -35,6 +38,7 @@ module.exports = async function (notification) {
         type,
         createdAt,
         content,
+        _id,
     }
 
 }

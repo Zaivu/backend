@@ -23,7 +23,7 @@ module.exports = async function (chat, ref) {
         const liveModel = new Notification({
             readBy: userList,
             sendBy: chat.userId,
-            createdAt: DateTime.now(),
+            createdAt: DateTime.now().toMillis(),
             ...baseModel,
         });
 

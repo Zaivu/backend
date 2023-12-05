@@ -37,7 +37,7 @@ router.get('/pagination/:page', async (req, res) => {
     flowTitle = '',
     label = '',
     client = '',
-    taskId=false,
+    taskId = false,
     alpha = false,
     creation = false,
     status = 'doing', // 'doing' || 'late' || 'pending || done'
@@ -82,7 +82,6 @@ router.get('/pagination/:page', async (req, res) => {
       client: { $regex: client, $options: 'i' },
       title: { $regex: flowTitle, $options: 'i' },
       tenantId: tenantId
-
     });
 
 
@@ -183,7 +182,6 @@ router.get('/pagination/:page', async (req, res) => {
       totalPages,
       today,
     };
-
 
 
     res.send(response).status(200);
