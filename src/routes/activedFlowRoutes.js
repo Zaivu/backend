@@ -399,7 +399,6 @@ router.post("/new", checkPermission, async (req, res) => {
     const user = req.user;
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
-
     const nowLocal = DateTime.now();
 
     const alreadyExist = await ActivedFlow.findOne({ title, isDeleted: false });
@@ -428,9 +427,31 @@ router.post("/new", checkPermission, async (req, res) => {
 
     const acFlow = await addActivedFlow(baseModel, elements)
 
+    const eventStart = acFlow.elements.find(item => item.type === 'eventStart')
+    const { _id: taskId } = eventStart;
+
+
+    const payload = {
+      nodeId: taskId,
+      userId: user._id,
+
+    }
+    const response = await confirmNode(payload); //lambda
+
+    const body = JSON.parse(response.body)
+    const backgroundJobs = body.action.backgroundJobs;
+
+    const options = {
+      userId: body.from.userId,
+      flowId: body.action.flowId,
+      type: "ConfirmNode",
+    }
+
+
+    await sendAllJobs(backgroundJobs, options, BackgroundJobs)
 
     res.status(200).json({
-      activedflow: acFlow,
+      activedflow: body,
     });
   } catch (err) {
     console.log(err);

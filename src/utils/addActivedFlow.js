@@ -1,6 +1,6 @@
 const ActivedFlow = require("../models/ActivedFlow");
 const ActivedEdge = require("../models/ActivedEdge");
-const ActivedNode = require("../models/ActivedEdge");
+const ActivedNode = require("../models/ActivedNode");
 const { DateTime } = require('luxon');
 
 const { randomUUID } = require("crypto");
@@ -11,9 +11,9 @@ const { randomUUID } = require("crypto");
 // É necessário que o progresso do fluxo seja feito posteriormente 
 // de forma separada
 module.exports = async function addActivedFlow(baseModel, { nodes, edges }) {
-  const liveModel = new ActivedFlow({ ...baseModel, default: null });
+  const liveModel = new ActivedFlow({ ...baseModel });
   const activedFlow = await liveModel.save();
-
+  // const activedFlow = liveModel;
   const nodesAndEdges = [...nodes, ...edges].map((item) => {
     const commonFields = {
       type: item.type,
@@ -61,11 +61,13 @@ module.exports = async function addActivedFlow(baseModel, { nodes, edges }) {
 
   const aElements = await Promise.all(
     nodesAndEdges.map(async (item) => {
-      //return await item.save();
-      return item;
+      return await item.save();
+      // return item;
     })
   );
 
-  return aElements;
+  const plainAF = activedFlow.toObject({ getters: true, virtuals: true });
+
+  return { elements: aElements, ...plainAF };
 };
 
