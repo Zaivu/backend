@@ -25,6 +25,7 @@ const checkPermission = require("../middlewares/userPermission");
 const sendAllJobs = require("../utils/sendAllJobs");
 const sendMentions = require("../utils/sendMentions")
 const { confirmNode } = require("../lambdas/confirm-node");
+const addActivedFlow = require("../utils/addActivedFlow");
 
 
 router.use(requireAuth);
@@ -78,29 +79,6 @@ async function getAvatar(userId) {
   }
 
   return avatar;
-}
-
-function walkParallelLoop(nodes, edges, item, callback) {
-  ////SE FOR ARESTA
-  if (item.source) {
-    return nodes.map((el) => {
-      if (el.id === item.target) {
-        if (el.type === "parallel") {
-          walkParallelLoop(nodes, edges, el, callback);
-        }
-        callback(el);
-      }
-    });
-  }
-  ////SE FOR NÓ
-  else {
-    return edges.map((element) => {
-      if (element.source === item.id) {
-        walkParallelLoop(nodes, edges, element, callback);
-        callback(element);
-      }
-    });
-  }
 }
 
 //Pagination
@@ -422,15 +400,6 @@ router.post("/new", checkPermission, async (req, res) => {
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
 
-    if (
-      !(typeof title === "string") ||
-      !ObjectID.isValid(tenantId) ||
-      !(typeof description === "string") ||
-      !(typeof client === "string")
-    ) {
-      throw exceptions.unprocessableEntity("Invalid argument types");
-    }
-
     const nowLocal = DateTime.now();
 
     const alreadyExist = await ActivedFlow.findOne({ title, isDeleted: false });
@@ -441,40 +410,6 @@ router.post("/new", checkPermission, async (req, res) => {
 
     const nodes = await Node.find({ flowId });
     const edges = await Edge.find({ flowId });
-
-    ////////////////////
-
-    const start = nodes.find((e) => e.type === "eventStart"); //node
-    const arrow = edges.find((e) => e.source === start.id); //edge
-    const afterStart = nodes.find((e) => arrow.target === e.id); //node
-    const doing = [afterStart.id]; //node
-    const doingEdges = [arrow.id]; //edge
-
-    const elements = [...nodes, ...edges];
-
-    if (afterStart.type === "parallel") {
-      doing.pop();
-
-      elements.map((e) => {
-        if (e._id === afterStart._id) e.data.status = "done";
-      });
-
-      walkParallelLoop(nodes, edges, afterStart, (node) => {
-        if (node.source) {
-          doingEdges.push(node.id);
-        } else if (
-          node.type === "task" ||
-          node.type === "conditional" ||
-          node.type === "timerEvent"
-        ) {
-          doing.push(node.id);
-        } else if (node.type === "parallel") {
-          node.data.status = "done";
-        }
-      });
-    }
-
-    /////////////////////
 
     let baseModel = {
       title,
@@ -488,125 +423,14 @@ router.post("/new", checkPermission, async (req, res) => {
       },
     };
 
-    const liveModel = new ActivedFlow({ ...baseModel, default: null });
 
-    const activedFlow = await liveModel.save();
+    const elements = { nodes, edges }
 
-    await Promise.all(
-      elements.map(async (item) => {
-        if (item.source) {
-          const test = !!doingEdges.find((e) => e === item.id);
-
-          const edge = new ActivedEdge({
-            source: item.source,
-            target: item.target,
-            sourceHandle: item.sourceHandle,
-            targetHandle: item.targetHandle,
-            id: item.id,
-            type: item.type,
-            data:
-              item.data === undefined
-                ? { ...item.data, status: "pending" }
-                : {
-                  ...item.data,
-                  status: test ? "done" : "pending",
-                },
-            flowId: activedFlow._id,
-            tenantId,
-          });
-          await edge.save();
-        } else {
-          let subtasks = [];
-
-          if (item.type === "task") {
-            item.data.subtasks.map((e) => {
-              subtasks.push({ ...e, id: randomUUID() });
-            });
-          }
-
-
-          const isAlreadyDoing = doing.find((e) => e === item.id);
-
-          const node = new ActivedNode({
-            type: item.type,
-            id: item.id,
-            position: item.position,
-            data:
-              item.type === "task"
-                ? {
-                  ...item.data,
-                  comments: "",
-                  posts: [],
-                  status: isAlreadyDoing ? "doing" : "pending",
-                  subtasks,
-                  accountable: null,
-
-                  startedAt: isAlreadyDoing //
-                    ? nowLocal.toMillis()
-                    : undefined,
-
-                  expiration: {
-                    ...item.data.expiration,
-
-                    date: isAlreadyDoing
-                      ? nowLocal
-                        .plus({ hours: item.data.expiration.number })
-                        .toMillis()
-                      : null,
-                  },
-                }
-                : item.type === "timerEvent" || item.type === 'conditional'
-                  ? {
-                    ...item.data,
-                    status: doing.find((e) => e === item.id)
-                      ? "doing"
-                      : "pending",
-                    startedAt: doing.find((e) => e === item.id)
-                      ? nowLocal.toMillis()
-                      : undefined,
-                  }
-
-                  : {
-                    ...item.data,
-                    status:
-                      item.type === "eventStart"
-                        ? "done"
-                        : doing.find((e) => e === item.id)
-                          ? "doing"
-                          : item.data.status !== "model"
-                            ? item.data.status
-                            : "pending",
-                  },
-            flowId: activedFlow._id,
-            targetPosition: item.targetPosition,
-            sourcePosition: item.sourcePosition,
-            tenantId,
-          });
-          await node.save();
-        }
-      })
-    );
-
-    const acNodes = await ActivedNode.find({ flowId: activedFlow._id });
-    const acEdges = await ActivedEdge.find({ flowId: activedFlow._id });
-
-
+    const acFlow = await addActivedFlow(baseModel, elements)
 
 
     res.status(200).json({
-      activedflow: {
-        title: activedFlow.title,
-        _id: activedFlow._id,
-        client: activedFlow.client,
-        status: activedFlow.status,
-        createdAt: activedFlow.createdAt,
-        finishedAt: activedFlow.finishedAt,
-        tenantId: activedFlow.tenantId,
-        comments: activedFlow.comments,
-        posts: activedFlow.posts,
-        lastState: activedFlow.lastState,
-        elements: [...acNodes, ...acEdges],
-      },
+      activedflow: acFlow,
     });
   } catch (err) {
     console.log(err);
