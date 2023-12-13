@@ -13,10 +13,14 @@ class NotificationService {
 
     async findByUser(userId, type) {
         const notifications = await this.notificationRepository.findByUser(userId, type);
-        const notificationsData = await Promise.all(
-            notifications.map(notification => this.notificationRepository.findNotificationData(notification))
-        );
-        return notificationsData.filter(Boolean);
+        const notificationsData = [];
+        for (const notification of notifications) {
+            const data = await this.notificationRepository.findNotificationData(notification);
+            if (data) {
+                notificationsData.push(data);
+            }
+        }
+        return notificationsData;
     }
 
 
