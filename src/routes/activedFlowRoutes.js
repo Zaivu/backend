@@ -451,7 +451,7 @@ router.post("/new", checkPermission, async (req, res) => {
     await sendAllJobs(backgroundJobs, options, BackgroundJobs)
 
     res.status(200).json({
-      activedflow: body,
+      flow: { flowId: acFlow._id, title: acFlow.title },
     });
   } catch (err) {
     console.log(err);
