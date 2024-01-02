@@ -49,4 +49,4 @@ const edgeSchema = new mongoose.Schema({
   },
 });
 
-module.export =  mongoose.model("Edge", edgeSchema);
+module.exports = mongoose.model("Edge", edgeSchema);

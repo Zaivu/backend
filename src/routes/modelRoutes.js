@@ -9,7 +9,11 @@ const { DateTime } = require("luxon");
 const exceptions = require("../exceptions");
 const router = express.Router();
 const checkPermission = require("../middlewares/userPermission");
-const { removeAllVersionsPerma, removeModelPerma, removeMainFlow } = require("../utils/removeModels");
+const {
+  removeAllVersionsPerma,
+  removeModelPerma,
+  removeMainFlow,
+} = require("../utils/removeModels");
 
 router.use(requireAuth, checkPermission);
 
@@ -36,8 +40,8 @@ router.get("/pagination/:tenantId/:page", async (req, res) => {
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
-      ? { title: 1 }
-      : { createdAt: -1 };
+    ? { title: 1 }
+    : { createdAt: -1 };
 
   try {
     // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
@@ -45,7 +49,7 @@ router.get("/pagination/:tenantId/:page", async (req, res) => {
     const paginateOptions = {
       page,
       limit: 4,
-      sort: { ...SortedBy, _id: 1 } // ultimas instancias
+      sort: { ...SortedBy, _id: 1 }, // ultimas instancias
     };
 
     const Pagination = await FlowModel.paginate(
@@ -705,8 +709,6 @@ router.put("/default", async (req, res) => {
   }
 });
 
-
-
 // ? Deleta o Projeto raiz e suas versões permanentemente (se existirem)
 router.delete("/project/:flowId", async (req, res) => {
   const { flowId } = req.params;
@@ -718,14 +720,18 @@ router.delete("/project/:flowId", async (req, res) => {
       throw exceptions.unprocessableEntity("flowId must be a valid objectID");
     }
 
-    const current = await FlowModel.findOne({ _id: flowId, tenantId, type: 'main' });
+    const current = await FlowModel.findOne({
+      _id: flowId,
+      tenantId,
+      type: "main",
+    });
 
     if (!current) {
       throw exceptions.entityNotFound();
     }
 
     await removeAllVersionsPerma(current._id, { FlowModel, Node, Edge });
-    await removeModelPerma(current._id, { FlowModel, Node, Edge })
+    await removeModelPerma(current._id, { FlowModel, Node, Edge });
 
     res.status(200).send({
       flow: current,
@@ -735,7 +741,6 @@ router.delete("/project/:flowId", async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 
 // ? Deleta 1 fluxo permanentemente
 router.delete("/flow/:flowId", async (req, res) => {
@@ -753,14 +758,13 @@ router.delete("/flow/:flowId", async (req, res) => {
       throw exceptions.entityNotFound();
     }
 
-
     const schemas = { FlowModel, Node, Edge };
     let mainVersion = null;
 
-    if (current.type === 'main') {
-      mainVersion = await removeMainFlow(current, schemas)
+    if (current.type === "main") {
+      mainVersion = await removeMainFlow(current, schemas);
     } else {
-      await removeModelPerma(current._id, schemas)
+      await removeModelPerma(current._id, schemas);
     }
 
     res.status(200).send({
@@ -776,8 +780,5 @@ router.delete("/flow/:flowId", async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
-
-
 
 module.exports = router;

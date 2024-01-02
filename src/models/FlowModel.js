@@ -44,4 +44,4 @@ const flowModelSchema = new mongoose.Schema({
 });
 
 flowModelSchema.plugin(mongoosePaginate);
-module.export =  mongoose.model("FlowModel", flowModelSchema);
+module.exports = mongoose.model("FlowModel", flowModelSchema);

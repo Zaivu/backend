@@ -23,13 +23,11 @@ const multerConfig = require("../config/multer");
 const multer = require("multer");
 const checkPermission = require("../middlewares/userPermission");
 const sendAllJobs = require("../utils/sendAllJobs");
-const sendMentions = require("../utils/sendMentions")
+const sendMentions = require("../utils/sendMentions");
 const { confirmNode } = require("../lambdas/confirm-node");
 const addActivedFlow = require("../utils/addActivedFlow");
 
-
 router.use(requireAuth);
-
 
 async function getAccountableUsers(nodes) {
   let relatedUsers = [];
@@ -100,8 +98,8 @@ router.get("/pagination/:page", checkPermission, async (req, res) => {
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
-      ? { title: 1 }
-      : { createdAt: -1 };
+    ? { title: 1 }
+    : { createdAt: -1 };
 
   try {
     // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
@@ -170,10 +168,10 @@ router.get("/pagination/history/:page", checkPermission, async (req, res) => {
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
-      ? { title: 1 }
-      : isFinishedAt
-        ? { finishedAt: -1 } // Variavel da Ordem de conclusão //! Em Teste
-        : { createdAt: -1 };
+    ? { title: 1 }
+    : isFinishedAt
+    ? { finishedAt: -1 } // Variavel da Ordem de conclusão //! Em Teste
+    : { createdAt: -1 };
 
   try {
     const paginateOptions = {
@@ -228,7 +226,6 @@ router.get("/pagination/history/:page", checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 
 //Single Flow
 router.get("/flow/:flowId", async (req, res) => {
@@ -390,19 +387,16 @@ router.get("/chat/flow/:refId", async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 //Add Active Flow
 router.post("/new", checkPermission, async (req, res) => {
   try {
     const { flowId, title, client = "", description } = req.body;
-
     const user = req.user;
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
     const nowLocal = DateTime.now();
 
     const alreadyExist = await ActivedFlow.findOne({ title, isDeleted: false });
-
     if (alreadyExist) {
       throw exceptions.alreadyExists();
     }
@@ -422,33 +416,31 @@ router.post("/new", checkPermission, async (req, res) => {
       },
     };
 
+    const elements = { nodes, edges };
 
-    const elements = { nodes, edges }
+    const acFlow = await addActivedFlow(baseModel, elements);
 
-    const acFlow = await addActivedFlow(baseModel, elements)
-
-    const eventStart = acFlow.elements.find(item => item.type === 'eventStart')
+    const eventStart = acFlow.elements.find(
+      (item) => item.type === "eventStart"
+    );
     const { _id: taskId } = eventStart;
-
 
     const payload = {
       nodeId: taskId,
       userId: user._id,
-
-    }
+    };
     const response = await confirmNode(payload); //lambda
 
-    const body = JSON.parse(response.body)
+    const body = JSON.parse(response.body);
     const backgroundJobs = body.action.backgroundJobs;
 
     const options = {
       userId: body.from.userId,
       flowId: body.action.flowId,
       type: "ConfirmNode",
-    }
+    };
 
-
-    await sendAllJobs(backgroundJobs, options, BackgroundJobs)
+    await sendAllJobs(backgroundJobs, options, BackgroundJobs);
 
     res.status(200).json({
       flow: { flowId: acFlow._id, title: acFlow.title },
@@ -464,32 +456,28 @@ router.post("/chat/new", async (req, res) => {
   try {
     const { userId, username, message, type, ref } = req.body;
 
-
     const avatarURL = await getAvatar(userId);
 
     const baseModel = {
       userId,
-      refId: type === 'task' ? ref.taskId : ref.flowId,
+      refId: type === "task" ? ref.taskId : ref.flowId,
       username,
       message,
       type,
     };
-
 
     const model = new ChatMessage({
       ...baseModel,
       createdAt: DateTime.now(),
     });
 
-
     const chatMessage = await model.save();
     await sendMentions(chatMessage, ref);
-
 
     const plainChat = chatMessage.toObject({ getters: true, virtuals: true });
     res.send({ chatMessage: { ...plainChat, avatarURL } });
   } catch (err) {
-    console.log(err)
+    console.log(err);
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
@@ -551,7 +539,6 @@ router.post(
     }
   }
 );
-
 
 //Update flow Accountable
 router.put("/accountable/", checkPermission, async (req, res) => {
@@ -621,35 +608,32 @@ router.put("/node/confirm", async (req, res) => {
 
   // const tenantId = user.tenantId ? user.tenantId : user._id;
 
-
   try {
     //////////////ATUAL
     const payload = {
       nodeId: taskId,
       userId: user._id,
-      edgeId
-
-    }
+      edgeId,
+    };
     const response = await confirmNode(payload); //lambda
     const statusCode = response.statusCode;
 
     if (statusCode === 500)
-      throw exceptions.unprocessableEntity("Lambda Error - Node Confirm", response)
+      throw exceptions.unprocessableEntity(
+        "Lambda Error - Node Confirm",
+        response
+      );
 
-    const body = JSON.parse(response.body)
+    const body = JSON.parse(response.body);
     const backgroundJobs = body.action.backgroundJobs;
-
-
-
 
     const options = {
       userId: body.from.userId,
       flowId: body.action.flowId,
       type: "ConfirmNode",
-    }
+    };
 
-
-    await sendAllJobs(backgroundJobs, options, BackgroundJobs)
+    await sendAllJobs(backgroundJobs, options, BackgroundJobs);
     const activedFlow = await ActivedFlow.findById(flowId);
     const newNodes = await ActivedNode.find({ flowId: flowId });
 
@@ -680,7 +664,6 @@ router.put("/node/confirm", async (req, res) => {
 
     const newEdges = await ActivedEdge.find({ flowId: flowId });
 
-
     const flow = {
       _id: activedFlow._id,
       title: activedFlow.title,
@@ -699,7 +682,7 @@ router.put("/node/confirm", async (req, res) => {
       flow,
     });
   } catch (err) {
-    console.log(err)
+    console.log(err);
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
@@ -775,7 +758,6 @@ router.put("/undo", checkPermission, async (req, res) => {
   }
 });
 
-
 //update Subtask
 router.put("/task/description", async (req, res) => {
   try {
@@ -799,7 +781,6 @@ router.put("/task/description", async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 
 //? New Delete Actived Flow
 router.put("/delete/", checkPermission, async (req, res) => {
@@ -826,7 +807,6 @@ router.put("/delete/", checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 
 //Remove flow Accountable
 router.delete("/accountable/:id", checkPermission, async (req, res) => {
@@ -873,9 +853,6 @@ router.delete("/task/subtask/delete/:taskId/:id", async (req, res) => {
     res.status(422).send({ error: err.message });
   }
 });
-
-
-
 
 //Delete File
 router.delete("/remove-file/:fileId", async (req, res) => {
