@@ -65,8 +65,7 @@ class ModelflowsService {
   }
 
   async copy(flowId, title) {
-    const flow = await this.modelflowsRepository.findFlow({ flowId });
-
+    const flow = await this.modelflowsRepository.findFlow({ _id: flowId });
     //Fluxo não encontrado
     if (!flow) {
       throw exceptions.entityNotFound("Fluxo não encontrado");
@@ -126,12 +125,12 @@ class ModelflowsService {
       tenantId,
       type: "main",
     });
-
     if (!flow) {
       throw exceptions.entityNotFound("Fluxo não encontrado");
     }
+    await this.modelflowsRepository.deleteProject(flowId);
 
-    return await this.modelflowsRepository.deleteProject(flowId);
+    return flow;
   }
 
   async deleteFlow(flowId, tenantId) {

@@ -205,7 +205,16 @@ class ModelflowsRepository {
     const edges = await Edge.find({ flowId: flow._id });
     const nodes = await Node.find({ flowId: flow._id });
 
-    return { ...flow, elements: [...nodes, ...edges] };
+    return {
+      flow: {
+        title: flow.title,
+        _id: flow._id,
+        createdAt: flow.createdAt,
+        tenantId: flow.tenantId,
+        type: flow.type,
+        elements: [...nodes, ...edges],
+      },
+    };
   }
 
   async copy(flow, title) {
@@ -347,11 +356,13 @@ class ModelflowsRepository {
     }
 
     return {
-      title: modelFlow.title,
-      _id: modelFlow._id,
-      createdAt: modelFlow.createdAt,
-      tenantId: modelFlow.tenantId,
-      type: modelFlow.type,
+      flow: {
+        title: modelFlow.title,
+        _id: modelFlow._id,
+        createdAt: modelFlow.createdAt,
+        tenantId: modelFlow.tenantId,
+        type: modelFlow.type,
+      },
     };
   }
 
@@ -428,10 +439,12 @@ class ModelflowsRepository {
     }
 
     return {
-      title: flow.title,
-      type: flow.type,
-      flowId: flow._id,
-      baseModel: mainVersion ? mainVersion : null,
+      flow: {
+        title: flow.title,
+        type: flow.type,
+        flowId: flow._id,
+        baseModel: mainVersion ? mainVersion : null,
+      },
     };
   }
 }

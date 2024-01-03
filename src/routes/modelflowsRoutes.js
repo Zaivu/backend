@@ -13,7 +13,7 @@ const modelflowsController = new ModelflowsController(modelflowsService);
 router.use(requireAuth);
 
 // Paginação
-router.get("/modelflows/pagination/:tenantId/page", (req, res, next) =>
+router.get("/modelflows/pagination/:tenantId/:page", (req, res, next) =>
   modelflowsController.pagination(req, res, next)
 );
 

@@ -16,8 +16,9 @@ class ModelflowsController {
         page,
         query
       );
-
-      res.status(200).send(modelflows);
+      res
+        .status(200)
+        .send({ flows: modelflows.flows, pages: modelflows.pages });
     } catch (error) {
       const code = error.code ? error.code : "412";
       res.status(code).send({ error: error.message, code });
@@ -65,7 +66,7 @@ class ModelflowsController {
         elements
       );
 
-      res.status(201).send({ flow });
+      res.status(201).send(flow);
     } catch (error) {
       const code = error.code ? error.code : "412";
       res.status(code).send({ error: error.message, code });
@@ -85,7 +86,7 @@ class ModelflowsController {
         elements
       );
 
-      res.status(201).send({ flow });
+      res.status(201).send(flow);
     } catch (error) {
       const code = error.code ? error.code : "412";
       res.status(code).send({ error: error.message, code });
@@ -95,8 +96,8 @@ class ModelflowsController {
   async copy(req, res) {
     try {
       const { flowId, title } = req.body;
-      const copiedFlow = await this.modelflowsService.copy(flowId, title);
-      res.status(201).send({ flow: copiedFlow });
+      const flow = await this.modelflowsService.copy(flowId, title);
+      res.status(201).send(flow);
     } catch (error) {
       const code = error.code ? error.code : "412";
       res.status(code).send({ error: error.message, code });
@@ -143,7 +144,7 @@ class ModelflowsController {
       const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
 
       const flow = await this.modelflowsService.deleteProject(flowId, tenantId);
-      res.status(204).send({ flow });
+      res.status(200).send({ flow });
     } catch (error) {
       const code = error.code ? error.code : "412";
       res.status(code).send({ error: error.message, code });
@@ -157,7 +158,7 @@ class ModelflowsController {
       const tenantId = user.tenantId ? user.tenantId : user._id; //Caso admin ou tenantID
 
       const flow = await this.modelflowsService.deleteFlow(flowId, tenantId);
-      res.status(204).send({ flow });
+      res.status(200).send(flow);
     } catch (error) {
       const code = error.code ? error.code : "412";
       res.status(code).send({ error: error.message, code });
