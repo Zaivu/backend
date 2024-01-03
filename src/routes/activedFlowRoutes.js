@@ -23,13 +23,11 @@ const multerConfig = require("../config/multer");
 const multer = require("multer");
 const checkPermission = require("../middlewares/userPermission");
 const sendAllJobs = require("../utils/sendAllJobs");
-const sendMentions = require("../utils/sendMentions")
+const sendMentions = require("../utils/sendMentions");
 const { confirmNode } = require("../lambdas/confirm-node");
 const addActivedFlow = require("../utils/addActivedFlow");
 
-
 router.use(requireAuth);
-
 
 async function getAccountableUsers(nodes) {
   let relatedUsers = [];
@@ -100,8 +98,8 @@ router.get("/pagination/:page", checkPermission, async (req, res) => {
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
-      ? { title: 1 }
-      : { createdAt: -1 };
+    ? { title: 1 }
+    : { createdAt: -1 };
 
   try {
     // console.log(req.query, { page }, { SortedBy }, { isAlpha, isCreation });
@@ -170,10 +168,10 @@ router.get("/pagination/history/:page", checkPermission, async (req, res) => {
   const SortedBy = isCreation
     ? { createdAt: 1 }
     : isAlpha
-      ? { title: 1 }
-      : isFinishedAt
-        ? { finishedAt: -1 } // Variavel da Ordem de conclusão //! Em Teste
-        : { createdAt: -1 };
+    ? { title: 1 }
+    : isFinishedAt
+    ? { finishedAt: -1 } // Variavel da Ordem de conclusão //! Em Teste
+    : { createdAt: -1 };
 
   try {
     const paginateOptions = {
@@ -228,7 +226,6 @@ router.get("/pagination/history/:page", checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 
 //Single Flow
 router.get("/flow/:flowId", async (req, res) => {
@@ -422,33 +419,31 @@ router.post("/new", checkPermission, async (req, res) => {
       },
     };
 
+    const elements = { nodes, edges };
 
-    const elements = { nodes, edges }
+    const acFlow = await addActivedFlow(baseModel, elements);
 
-    const acFlow = await addActivedFlow(baseModel, elements)
-
-    const eventStart = acFlow.elements.find(item => item.type === 'eventStart')
+    const eventStart = acFlow.elements.find(
+      (item) => item.type === "eventStart"
+    );
     const { _id: taskId } = eventStart;
-
 
     const payload = {
       nodeId: taskId,
       userId: user._id,
-
-    }
+    };
     const response = await confirmNode(payload); //lambda
 
-    const body = JSON.parse(response.body)
+    const body = JSON.parse(response.body);
     const backgroundJobs = body.action.backgroundJobs;
 
     const options = {
       userId: body.from.userId,
       flowId: body.action.flowId,
       type: "ConfirmNode",
-    }
+    };
 
-
-    await sendAllJobs(backgroundJobs, options, BackgroundJobs)
+    await sendAllJobs(backgroundJobs, options, BackgroundJobs);
 
     res.status(200).json({
       flow: { flowId: acFlow._id, title: acFlow.title },
@@ -464,32 +459,28 @@ router.post("/chat/new", async (req, res) => {
   try {
     const { userId, username, message, type, ref } = req.body;
 
-
     const avatarURL = await getAvatar(userId);
 
     const baseModel = {
       userId,
-      refId: type === 'task' ? ref.taskId : ref.flowId,
+      refId: type === "task" ? ref.taskId : ref.flowId,
       username,
       message,
       type,
     };
-
 
     const model = new ChatMessage({
       ...baseModel,
       createdAt: DateTime.now(),
     });
 
-
     const chatMessage = await model.save();
     await sendMentions(chatMessage, ref);
-
 
     const plainChat = chatMessage.toObject({ getters: true, virtuals: true });
     res.send({ chatMessage: { ...plainChat, avatarURL } });
   } catch (err) {
-    console.log(err)
+    console.log(err);
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
@@ -551,7 +542,6 @@ router.post(
     }
   }
 );
-
 
 //Update flow Accountable
 router.put("/accountable/", checkPermission, async (req, res) => {
@@ -621,35 +611,32 @@ router.put("/node/confirm", async (req, res) => {
 
   // const tenantId = user.tenantId ? user.tenantId : user._id;
 
-
   try {
     //////////////ATUAL
     const payload = {
       nodeId: taskId,
       userId: user._id,
-      edgeId
-
-    }
+      edgeId,
+    };
     const response = await confirmNode(payload); //lambda
     const statusCode = response.statusCode;
 
     if (statusCode === 500)
-      throw exceptions.unprocessableEntity("Lambda Error - Node Confirm", response)
+      throw exceptions.unprocessableEntity(
+        "Lambda Error - Node Confirm",
+        response
+      );
 
-    const body = JSON.parse(response.body)
+    const body = JSON.parse(response.body);
     const backgroundJobs = body.action.backgroundJobs;
-
-
-
 
     const options = {
       userId: body.from.userId,
       flowId: body.action.flowId,
       type: "ConfirmNode",
-    }
+    };
 
-
-    await sendAllJobs(backgroundJobs, options, BackgroundJobs)
+    await sendAllJobs(backgroundJobs, options, BackgroundJobs);
     const activedFlow = await ActivedFlow.findById(flowId);
     const newNodes = await ActivedNode.find({ flowId: flowId });
 
@@ -680,7 +667,6 @@ router.put("/node/confirm", async (req, res) => {
 
     const newEdges = await ActivedEdge.find({ flowId: flowId });
 
-
     const flow = {
       _id: activedFlow._id,
       title: activedFlow.title,
@@ -699,7 +685,7 @@ router.put("/node/confirm", async (req, res) => {
       flow,
     });
   } catch (err) {
-    console.log(err)
+    console.log(err);
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
   }
@@ -775,7 +761,6 @@ router.put("/undo", checkPermission, async (req, res) => {
   }
 });
 
-
 //update Subtask
 router.put("/task/description", async (req, res) => {
   try {
@@ -799,7 +784,6 @@ router.put("/task/description", async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 
 //? New Delete Actived Flow
 router.put("/delete/", checkPermission, async (req, res) => {
@@ -826,7 +810,6 @@ router.put("/delete/", checkPermission, async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 
 //Remove flow Accountable
 router.delete("/accountable/:id", checkPermission, async (req, res) => {
@@ -874,9 +857,6 @@ router.delete("/task/subtask/delete/:taskId/:id", async (req, res) => {
   }
 });
 
-
-
-
 //Delete File
 router.delete("/remove-file/:fileId", async (req, res) => {
   const { fileId } = req.params;
@@ -890,6 +870,136 @@ router.delete("/remove-file/:fileId", async (req, res) => {
   } catch (err) {
     const code = err.code ? err.code : "412";
     res.status(code).send({ error: err.message, code });
+  }
+});
+
+//? Adding CustomNotes Routes
+
+//add CustomNote
+router.post("/customnote", async (req, res) => {
+  try {
+    const { flowId, ...newNoteData } = req.body;
+    const user = req.user;
+
+    // Check for missing required fields
+    if (!flowId || !newNoteData || Object.keys(newNoteData).length === 0) {
+      return res.status(400).send("Missing required fields");
+    }
+
+    const tenantId = user.tenantId ? user.tenantId : user._id;
+
+    const activeFlow = await ActivedFlow.findById(flowId);
+
+    if (!activeFlow) {
+      return res.status(404).send("ActiveFlow not found");
+    }
+
+    const activedNode = new ActivedNode({
+      type: "customNote",
+      id: newNoteData.id,
+      flowId: flowId,
+      tenantId: tenantId,
+      position: newNoteData.position,
+      data: {
+        ...newNoteData.data,
+      },
+    });
+
+    await activedNode.save();
+
+    res
+      .status(200)
+      .json({ message: "Custom note added successfully", activeFlow });
+  } catch (err) {
+    const code = err.code ? err.code : "500";
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+//remove CustomNote
+
+router.delete("/customnote", async (req, res) => {
+  try {
+    const { noteId } = req.body;
+
+    // Check if noteId is provided
+    if (!noteId) {
+      return res.status(400).send("Note ID is required");
+    }
+
+    const activedNode = await ActivedNode.findOne({
+      id: noteId,
+      type: "customNote",
+    });
+
+    if (!activedNode) {
+      return res.status(404).send("Custom note not found");
+    }
+
+    await activedNode.remove();
+
+    res.status(200).json({ message: "Custom note deleted successfully" });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+});
+
+// Modify the Custom Notes Data and Location.
+
+router.put("/customnote/data", async (req, res) => {
+  try {
+    const { noteId, newData } = req.body;
+
+    if (!noteId || !newData) {
+      return res
+        .status(400)
+        .send("Missing required fields: noteId and/or NoteData");
+    }
+
+    const activedNode = await ActivedNode.findOneAndUpdate(
+      { id: noteId, type: "customNote" },
+      { $set: { data: newData } },
+      { new: true }
+    );
+
+    if (!activedNode) {
+      return res.status(404).send("Custom note not found");
+    }
+
+    res
+      .status(200)
+      .json({ message: "Custom note data updated successfully", activedNode });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+});
+
+router.put("/customnote/location", async (req, res) => {
+  try {
+    const { noteId, newPosition } = req.body;
+
+    if (!noteId || !newPosition) {
+      return res
+        .status(400)
+        .send("Missing required fields: noteId and/or newPosition");
+    }
+
+    const activedNode = await ActivedNode.findOneAndUpdate(
+      { id: noteId, type: "customNote" },
+      { $set: { position: newPosition } },
+      { new: true }
+    );
+
+    if (!activedNode) {
+      return res.status(404).send("Custom note not found");
+    }
+
+    res.status(200).json({
+      message: "Custom note location updated successfully",
+      activedNode,
+    });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
   }
 });
 
