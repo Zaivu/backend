@@ -895,7 +895,7 @@ router.post("/customnote", async (req, res) => {
     }
 
     const activedNode = new ActivedNode({
-      type: "customNote",
+      type: "CustomNote",
       id: newNoteData.id,
       flowId: flowId,
       tenantId: tenantId,
@@ -909,7 +909,7 @@ router.post("/customnote", async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "Custom note added successfully", activeFlow });
+      .json({ message: "Custom note added successfully", activedNode });
   } catch (err) {
     const code = err.code ? err.code : "500";
     res.status(code).send({ error: err.message, code });
@@ -918,18 +918,18 @@ router.post("/customnote", async (req, res) => {
 
 //remove CustomNote
 
-router.delete("/customnote", async (req, res) => {
+router.delete("/customnote/:noteId", async (req, res) => {
   try {
-    const { noteId } = req.body;
+    const { noteId } = req.params;
+    console.log({ noteId });
 
-    // Check if noteId is provided
     if (!noteId) {
       return res.status(400).send("Note ID is required");
     }
 
     const activedNode = await ActivedNode.findOne({
       id: noteId,
-      type: "customNote",
+      type: "CustomNote",
     });
 
     if (!activedNode) {
@@ -938,12 +938,13 @@ router.delete("/customnote", async (req, res) => {
 
     await activedNode.remove();
 
-    res.status(200).json({ message: "Custom note deleted successfully" });
+    res
+      .status(200)
+      .json({ message: "Custom note deleted successfully", id: noteId });
   } catch (err) {
     res.status(500).send({ error: err.message });
   }
 });
-
 // Modify the Custom Notes Data and Location.
 
 router.put("/customnote/data", async (req, res) => {
@@ -957,7 +958,7 @@ router.put("/customnote/data", async (req, res) => {
     }
 
     const activedNode = await ActivedNode.findOneAndUpdate(
-      { id: noteId, type: "customNote" },
+      { id: noteId, type: "CustomNote" },
       { $set: { data: newData } },
       { new: true }
     );
@@ -966,9 +967,10 @@ router.put("/customnote/data", async (req, res) => {
       return res.status(404).send("Custom note not found");
     }
 
-    res
-      .status(200)
-      .json({ message: "Custom note data updated successfully", activedNode });
+    res.status(200).json({
+      message: "Custom note data updated successfully",
+      data: activedNode,
+    });
   } catch (err) {
     res.status(500).send({ error: err.message });
   }
@@ -985,7 +987,7 @@ router.put("/customnote/location", async (req, res) => {
     }
 
     const activedNode = await ActivedNode.findOneAndUpdate(
-      { id: noteId, type: "customNote" },
+      { id: noteId, type: "CustomNote" },
       { $set: { position: newPosition } },
       { new: true }
     );
