@@ -20,7 +20,7 @@ const modelflowsRoutes = require("./routes/modelflowsRoutes");
 const activedFlowRoutes = require("./routes/activedFlowRoutes");
 const authRoutes = require("./routes/authRoutes");
 const usersRoutes = require("./routes/usersRoutes");
-const activedTaskRoutes = require("./routes/activedTasksRoutes");
+const activedTaskRoutes = require("./routes/acTasksRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 
 // utils
@@ -63,16 +63,14 @@ app.use(authRoutes);
 app.use(usersRoutes);
 app.use(notificationRoutes);
 app.use(modelflowsRoutes);
-// app.use("/modelflows", modelRoutes);
+app.use(activedTaskRoutes);
 app.use("/activedflows", activedFlowRoutes);
-app.use("/activedtasks", activedTaskRoutes);
 
 const mongoUri = process.env.MONGO_URL;
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
-mongoose;
 
 mongoose.connection.on("connected", () => {
   console.log("Connected to mongo api // zaivu!");

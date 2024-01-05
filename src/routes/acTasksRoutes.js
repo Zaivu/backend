@@ -40,3 +40,5 @@ router.delete(
   checkPermission,
   (req, res, next) => activedTasksController.removeAccountable(req, res, next)
 );
+
+module.exports = router;
