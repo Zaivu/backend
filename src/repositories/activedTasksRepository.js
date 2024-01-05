@@ -1,11 +1,9 @@
 const User = require("../models/User");
 const ActivedNode = require("../models/ActivedNode");
 const ActivedFlow = require("../models/ActivedFlow");
-const Post = require("../models/Post");
-const ChatMessage = require("../models/ChatMessage");
 const { DateTime } = require("luxon");
 const getAvatar = require("../utils/getUserAvatar");
-const getMomentStatus = require("../utils/getMomentStatus");
+const getTaskData = require("../utils/getTaskData");
 
 class ActivedTasksRepository {
   async pagination(user, rank, queries, page) {
@@ -20,7 +18,7 @@ class ActivedTasksRepository {
       tasksACC = true,
     } = queries;
 
-    const today = DateTime.now();
+    const nowLocal = DateTime.now();
 
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
@@ -69,8 +67,8 @@ class ActivedTasksRepository {
     if (currentStatus === "doing") {
       query["data.expiration.date"] =
         status === "late"
-          ? { $lt: today.toMillis() }
-          : { $gt: today.toMillis() };
+          ? { $lt: nowLocal.toMillis() }
+          : { $gt: nowLocal.toMillis() };
 
       if (rank === "colaborador" || isTasksACC) {
         query["data.accountable.userId"] = user._id;
@@ -85,61 +83,20 @@ class ActivedTasksRepository {
 
     const taskPagination = await Promise.all(
       Pagination.docs.map(async (item) => {
-        const currentProject = projects.find((p) => {
-          const comparison =
-            JSON.stringify(item.flowId) === JSON.stringify(p.flowId);
-
-          if (comparison) {
-            return p;
-          }
-        });
-
+        const currentProject = projects.find(
+          (p) => JSON.stringify(item.flowId) === JSON.stringify(p.flowId)
+        );
         if (currentProject) {
-          const files = await Post.find({ originalId: item._id });
-          const chatMessages = await ChatMessage.find({ refId: item._id });
-
-          const accUser = item.data.accountable?.userId ?? null;
-
-          let accountable = null;
-          if (accUser) {
-            const user = await User.findOne({ _id: accUser });
-            const avatarURL = await getAvatar(accUser);
-
-            accountable = {
-              userId: accUser,
-              username: user.username,
-              avatarURL: avatarURL,
-            };
-          }
-
-          const moment = getMomentStatus(item);
-
-          const task = {
-            label: item.data.label,
-            _id: item._id,
-            type: item.type,
-            status: item.data.status,
-            description: item.data.comments,
-            subtasks: item.data.subtasks,
-            duration: item.data.expiration.number,
-            moment: moment,
-            flowId: item.flowId,
-            projectName: currentProject.title,
-            files: files.length,
-            chatMessages: chatMessages.length,
-            accountable,
-          };
-
-          return task;
+          const task = await getTaskData(item);
+          return { ...task, projectName: currentProject.title };
         }
       })
     );
 
     const totalPages = Pagination.totalPages;
 
-    return { pagination: taskPagination, totalPages, today };
+    return { pagination: taskPagination, totalPages, today: nowLocal };
   }
-
   async getUser(query) {
     return await User.findOne(query);
   }
@@ -164,7 +121,6 @@ class ActivedTasksRepository {
       accountable: { avatarURL, userId, username },
     };
   }
-
   async setAccountableMultiple(tasksList, user, tenantId) {
     const userId = user._id;
     const username = user.username;
@@ -187,7 +143,6 @@ class ActivedTasksRepository {
       accountable: { avatarURL, userId, username },
     };
   }
-
   async setLabel(task, label) {
     const taskId = task._id;
     const tenantId = task.tenantId;
@@ -200,7 +155,6 @@ class ActivedTasksRepository {
 
     return { taskId, label };
   }
-
   async removeAccountable(task) {
     const taskId = task._id;
     const tenantId = task.tenantId;
