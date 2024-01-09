@@ -4,9 +4,10 @@ const ActivedFlow = require("../models/ActivedFlow");
 const { DateTime } = require("luxon");
 const getAvatar = require("../utils/getUserAvatar");
 const getTaskData = require("../utils/getTaskData");
+const getMomentStatus = require("../utils/getMomentStatus");
 
 class ActivedTasksRepository {
-  async pagination(user, rank, queries, page) {
+  async pagination(user, queries, page) {
     const {
       flowTitle = "",
       label = "",
@@ -21,7 +22,7 @@ class ActivedTasksRepository {
     const nowLocal = DateTime.now();
 
     const tenantId = user.tenantId ? user.tenantId : user._id;
-
+    const rank = user.rank;
     const isAlpha = alpha === "true"; //Ordem do alfabeto
     const isCreation = creation === "true"; //Ordem de Criação
     const isTasksACC = tasksACC === "true";
@@ -96,6 +97,67 @@ class ActivedTasksRepository {
     const totalPages = Pagination.totalPages;
 
     return { pagination: taskPagination, totalPages, today: nowLocal };
+  }
+  async getUserStats(user, dates) {
+    const { initial, final } = dates;
+    const userId = user._id;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
+
+    let dataInicial = DateTime.fromISO(initial).toMillis(); // 10 de Agosto de 2023
+    let dataFinal = DateTime.fromISO(final).toMillis();
+
+    const filters = {
+      isDeleted: false,
+      tenantId,
+      type: "task",
+      "data.accountable.userId": userId,
+      "data.startedAt": {
+        $gte: dataInicial,
+        $lte: dataFinal,
+      },
+    };
+
+    const projects = await ActivedFlow.find({ isDeleted: false, tenantId });
+
+    //Remap de Projetos
+    const projectsMap = projects.reduce((map, project) => {
+      map[project._id] = project;
+      return map;
+    }, {});
+
+    //Remap de Tarefas
+    const taskRemap = (item) => {
+      item = item.toObject({ getters: true, virtuals: true });
+      return {
+        _id: item._id,
+        label: item.data.label,
+        status: item.data.status,
+        moment: getMomentStatus(item),
+        startedAt: item.data.startedAt ? item.data.startedAt : null,
+        finishedAt: item.data.finishedAt ? item.data.finishedAt : null,
+        expiration: item.data.expiration,
+        projectInfo: {
+          title: projectsMap[item.flowId]?.title,
+          createdAt: projectsMap[item.flowId]?.createdAt,
+          finishedAt: projectsMap[item.flowId]?.finishedAt
+            ? projectsMap[item.flowId]?.finishedAt
+            : null,
+        },
+      };
+    };
+
+    const doing = (
+      await ActivedNode.find({ ...filters, "data.status": "doing" })
+    ).map(taskRemap);
+
+    const done = (
+      await ActivedNode.find({
+        ...filters,
+        "data.status": "done",
+      })
+    ).map(taskRemap);
+
+    return { doing, done };
   }
   async getUser(query) {
     return await User.findOne(query);

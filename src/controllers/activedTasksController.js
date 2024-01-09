@@ -7,17 +7,32 @@ class ActivedTasksController {
     try {
       const { page = "1" } = req.params;
       const user = req.user;
-      const rank = user.rank;
       const queries = req.query;
 
       const tasks = await this.activedTasksService.pagination(
         user,
-        rank,
         queries,
         page
       );
 
       res.status(200).send(tasks);
+    } catch (error) {
+      const code = error.code ? error.code : "412";
+      res.status(code).send({ error: error.message, code });
+    }
+  }
+
+  async getUserStats(req, res) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      const userId = id ? id : user._id;
+
+      const dates = req.body;
+
+      const data = await this.activedTasksService.getUserStats(userId, dates);
+
+      res.status(200).send(data);
     } catch (error) {
       const code = error.code ? error.code : "412";
       res.status(code).send({ error: error.message, code });

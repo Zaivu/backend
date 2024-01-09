@@ -18,6 +18,10 @@ router.get("/activedtasks/pagination/:page", (req, res, next) =>
   activedTasksController.pagination(req, res, next)
 );
 
+router.get("/activedtasks/user/:userId", (req, res, next) =>
+  activedTasksController.getUserStats(req, res, next)
+);
+
 //Atualizar Responsável por tarefa
 router.put("/activedtasks/accountable/", checkPermission, (req, res, next) =>
   activedTasksController.setAccountable(req, res, next)

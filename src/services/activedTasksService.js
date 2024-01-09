@@ -5,26 +5,29 @@ class ActivedTasksService {
     this.activedTasksRepository = activedTasksRepository;
   }
 
-  async pagination(user, rank, queries, page) {
-    return await this.activedTasksRepository.pagination(
-      user,
-      rank,
-      queries,
-      page
-    );
+  async pagination(user, queries, page) {
+    return await this.activedTasksRepository.pagination(user, queries, page);
+  }
+
+  async getUserStats(userId, dates) {
+    const user = await this.activedTasksRepository.getUser({ _id: userId });
+
+    if (!user) throw exceptions.entityNotFound("Usuário não encontrado.");
+
+    return await this.activedTasksRepository.getUserStats(user, dates);
   }
 
   async setAccountable(taskId, userId, tenantId) {
     const user = await this.activedTasksRepository.getUser({ _id: userId });
 
-    if (!user) throw exceptions.entityNotFound("Usuário não encontrado");
+    if (!user) throw exceptions.entityNotFound("Usuário não encontrado.");
 
     const task = await this.activedTasksRepository.getTask({
       _id: taskId,
       tenantId,
     });
 
-    if (!task) throw exceptions.entityNotFound("Tarefa não encontrada");
+    if (!task) throw exceptions.entityNotFound("Tarefa não encontrada.");
 
     return await this.activedTasksRepository.setAccountable(task, user);
   }
@@ -32,7 +35,7 @@ class ActivedTasksService {
   async setAccountableMultiple(tasksList, userId, tenantId) {
     const user = await this.activedTasksRepository.getUser({ _id: userId });
 
-    if (!user) throw exceptions.entityNotFound("Usuário não encontrado");
+    if (!user) throw exceptions.entityNotFound("Usuário não encontrado.");
 
     return await this.activedTasksRepository.setAccountableMultiple(
       tasksList,
@@ -45,7 +48,7 @@ class ActivedTasksService {
     const query = { _id: taskId, tenantId };
     const task = await this.activedTasksRepository.getTask(query);
 
-    if (!task) throw exceptions.entityNotFound("Tarefa não encontrada");
+    if (!task) throw exceptions.entityNotFound("Tarefa não encontrada.");
 
     return await this.activedTasksRepository.setLabel(task, label);
   }
