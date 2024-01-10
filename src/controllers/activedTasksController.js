@@ -26,7 +26,7 @@ class ActivedTasksController {
       const user = req.user;
       const tenantId = user.tenantId ? user.tenantId : user._id;
 
-      const dates = req.body;
+      const dates = req.query;
 
       const data = await this.activedTasksService.getUserStats(
         id,
