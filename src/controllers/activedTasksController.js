@@ -2,7 +2,6 @@ class ActivedTasksController {
   constructor(activedTasksService) {
     this.activedTasksService = activedTasksService;
   }
-
   async pagination(req, res) {
     try {
       const { page = "1" } = req.params;
@@ -21,16 +20,19 @@ class ActivedTasksController {
       res.status(code).send({ error: error.message, code });
     }
   }
-
   async getUserStats(req, res) {
     try {
       const { id } = req.params;
       const user = req.user;
-      const userId = id ? id : user._id;
+      const tenantId = user.tenantId ? user.tenantId : user._id;
 
       const dates = req.body;
 
-      const data = await this.activedTasksService.getUserStats(userId, dates);
+      const data = await this.activedTasksService.getUserStats(
+        id,
+        tenantId,
+        dates
+      );
 
       res.status(200).send(data);
     } catch (error) {
@@ -39,6 +41,23 @@ class ActivedTasksController {
     }
   }
 
+  async getUsersByTenant(req, res) {
+    try {
+      const user = req.user;
+      const userId = user._id;
+      const tenantId = user.tenantId ? user.tenantId : user._id;
+
+      const users = await this.activedTasksService.getUsersByTenant(
+        userId,
+        tenantId
+      );
+
+      res.status(200).send(users);
+    } catch (error) {
+      const code = error.code ? error.code : "412";
+      res.status(code).send({ error: error.message, code });
+    }
+  }
   async setAccountable(req, res) {
     try {
       const { userId, id: taskId } = req.body;
@@ -56,7 +75,6 @@ class ActivedTasksController {
       res.status(code).send({ error: error.message, code });
     }
   }
-
   async setAccountableMultiple(req, res) {
     try {
       const { userId, tasksList } = req.body;
@@ -74,7 +92,6 @@ class ActivedTasksController {
       res.status(code).send({ error: error.message, code });
     }
   }
-
   async setLabel(req, res) {
     try {
       const { label, taskId } = req.body;
@@ -92,7 +109,6 @@ class ActivedTasksController {
       res.status(code).send({ error: error.message, code });
     }
   }
-
   async removeAccountable(req, res) {
     try {
       const { id: taskId } = req.params;

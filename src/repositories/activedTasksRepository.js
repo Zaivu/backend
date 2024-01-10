@@ -159,6 +159,20 @@ class ActivedTasksRepository {
 
     return { doing, done };
   }
+  async getTenantUsersWithAvatars(query) {
+    const users = await User.find(query);
+
+    return await Promise.all(
+      users.map(async (user) => {
+        const avatarURL = await getAvatar(user._id);
+        const plainUser = user.toObject({
+          getters: true,
+          virtuals: true,
+        });
+        return { ...plainUser, avatarURL };
+      })
+    );
+  }
   async getUser(query) {
     return await User.findOne(query);
   }
