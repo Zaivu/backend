@@ -137,6 +137,7 @@ class ActivedTasksRepository {
         finishedAt: item.data.finishedAt ? item.data.finishedAt : null,
         expiration: item.data.expiration,
         projectInfo: {
+          flowId: item.flowId,
           title: projectsMap[item.flowId]?.title,
           createdAt: projectsMap[item.flowId]?.createdAt,
           finishedAt: projectsMap[item.flowId]?.finishedAt
