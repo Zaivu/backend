@@ -47,6 +47,7 @@ class ActivedTasksService {
       await this.activedTasksRepository.getTenantUsersWithAvatars({
         ...userFilters,
         isDeleted: false,
+        status: "active",
       })
     ).map(
       (user) =>
