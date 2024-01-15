@@ -878,11 +878,11 @@ router.delete("/remove-file/:fileId", async (req, res) => {
 //add CustomNote
 router.post("/customnote", async (req, res) => {
   try {
-    const { flowId, ...newNoteData } = req.body;
+    const { flowId, position, id } = req.body;
     const user = req.user;
 
     // Check for missing required fields
-    if (!flowId || !newNoteData || Object.keys(newNoteData).length === 0) {
+    if (!flowId || !position || Object.keys(position).length === 0) {
       return res.status(400).send("Missing required fields");
     }
 
@@ -896,12 +896,19 @@ router.post("/customnote", async (req, res) => {
 
     const activedNode = new ActivedNode({
       type: "CustomNote",
-      id: newNoteData.id,
-      flowId: flowId,
+      position: position || { x: 0, y: 0 },
       tenantId: tenantId,
-      position: newNoteData.position,
+      flowId: flowId,
+      id: id,
       data: {
-        ...newNoteData.data,
+        label: "New note",
+        text: "",
+        color: "rgba(255, 207, 153, 1.0)",
+        textColor: "#000000",
+        textSize: "16",
+        width: 200,
+        height: 50,
+        lock: true,
       },
     });
 
@@ -921,7 +928,6 @@ router.post("/customnote", async (req, res) => {
 router.delete("/customnote/:noteId", async (req, res) => {
   try {
     const { noteId } = req.params;
-    console.log({ noteId });
 
     if (!noteId) {
       return res.status(400).send("Note ID is required");
@@ -998,7 +1004,7 @@ router.put("/customnote/location", async (req, res) => {
 
     res.status(200).json({
       message: "Custom note location updated successfully",
-      activedNode,
+      data: activedNode,
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
