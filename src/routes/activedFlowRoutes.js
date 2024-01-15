@@ -387,19 +387,16 @@ router.get("/chat/flow/:refId", async (req, res) => {
     res.status(code).send({ error: err.message, code });
   }
 });
-
 //Add Active Flow
 router.post("/new", checkPermission, async (req, res) => {
   try {
     const { flowId, title, client = "", description } = req.body;
-
     const user = req.user;
     const tenantId = user.tenantId ? user.tenantId : user._id;
 
     const nowLocal = DateTime.now();
 
     const alreadyExist = await ActivedFlow.findOne({ title, isDeleted: false });
-
     if (alreadyExist) {
       throw exceptions.alreadyExists();
     }
