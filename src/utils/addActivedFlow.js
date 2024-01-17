@@ -37,6 +37,8 @@ module.exports = async function addActivedFlow(baseModel, { nodes, edges }) {
         case "eventStart":
           return new ActivedNode({
             ...commonFields,
+            targetPosition: item.targetPosition,
+            sourcePosition: item.sourcePosition,
             position: item.position,
             data: {
               ...item.data,
@@ -48,6 +50,8 @@ module.exports = async function addActivedFlow(baseModel, { nodes, edges }) {
           return new ActivedNode({
             ...commonFields,
             position: item.position,
+            targetPosition: item.targetPosition,
+            sourcePosition: item.sourcePosition,
             data: {
               ...item.data,
               status: "pending", // 'task' nodes begin as 'pending'
@@ -62,21 +66,17 @@ module.exports = async function addActivedFlow(baseModel, { nodes, edges }) {
             },
           });
 
-        case "customNote":
+        default:
           return new ActivedNode({
-            type: item.type,
-            id: item.id,
-            flowId: activedFlow._id,
-            tenantId: activedFlow.tenantId,
+            ...commonFields,
+            targetPosition: item.targetPosition,
+            sourcePosition: item.sourcePosition,
             position: item.position,
             data: {
+              status: "pending",
               ...item.data,
             },
           });
-
-        default:
-          // Optionally handle unrecognized node types
-          throw new Error(`Unhandled node type: ${item.type}`);
       }
     }
   });
