@@ -10,9 +10,8 @@ const exceptions = require("../exceptions");
 const AWS = require("aws-sdk");
 
 const Post = mongoose.model("Post");
-const requireAuth = require('../middlewares/requireAuth');
+const requireAuth = require("../middlewares/requireAuth");
 AWS.config.update({ region: process.env.AWS_DEFAULT_REGION });
-
 
 async function getAvatar(userId) {
   let avatar = process.env.DEFAULT_PROFILE_PICTURE;
@@ -45,10 +44,9 @@ async function sendEmail(fromAddress, toAddress, subject, body) {
   await ses.sendEmail(params).promise();
 }
 
-router.get('/auth/verify-token', requireAuth, (req, res) => {
-  res.status(200).send({ msg: 'Login is successful' });
-})
-
+router.get("/auth/verify-token", requireAuth, (req, res) => {
+  res.status(200).send({ msg: "Login is successful" });
+});
 
 //Logar contar
 router.post("/auth/sign-in", async (req, res) => {
@@ -61,7 +59,6 @@ router.post("/auth/sign-in", async (req, res) => {
   }
 
   try {
-
     const user = await User.findOne({ email: login });
 
     if (!user) {
@@ -83,7 +80,7 @@ router.post("/auth/sign-in", async (req, res) => {
 
     delete userCopy["password"];
 
-    const userId = user._id
+    const userId = user._id;
 
     const avatarURL = await getAvatar(userId);
 
@@ -92,7 +89,6 @@ router.post("/auth/sign-in", async (req, res) => {
       refreshToken,
       user: { ...userCopy, avatarURL },
     };
-
 
     res.status(200).json(response);
   } catch (err) {
@@ -218,8 +214,6 @@ router.post("/auth/new-token", async (req, res) => {
 //Validar token
 router.get("/auth/validate-token/:token", async (req, res) => {
   const { token } = req.params;
-
-
 
   const user = await User.findOne({ resetToken: token });
 
@@ -368,9 +362,10 @@ router.post("/auth/new-job", async (req, res) => {
     let nodeId = crypto.randomUUID();
     // const job = await Queue.add("InitTimerEvent", { nodeId }, { delay: 15000 });
 
-    res.send({ nodeId, jobId: 'job.id' });
+    res.send({ nodeId, jobId: "job.id" });
   } catch (err) {
     return res.status(422).send(err.message);
   }
 });
 module.exports = router;
+
