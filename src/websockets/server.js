@@ -5,7 +5,7 @@ const handleNotificationEvent = require("./events/notification");
 const handleDisconnectEvent = require("./events/disconnect");
 
 module.exports = function (obj, app) {
-  const httpServer = createServer(obj, app);
+  const httpServer = createServer(app);
   const io = init(httpServer);
 
   io.use(socketAuth);

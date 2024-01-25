@@ -40,8 +40,6 @@ const httpConfigObj = {
   key: fs.readFileSync("./api-dev.zaivu.com/private.key"),
   cert: fs.readFileSync("./api-dev.zaivu.com/certificate.crt"),
   ca: fs.readFileSync("./api-dev.zaivu.com/ca_bundle.crt"),
-  requestCert: false,
-  rejectUnauthorized: false,
 };
 
 const httpServer = setupSocketServer(httpConfigObj, app);
