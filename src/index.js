@@ -13,7 +13,6 @@ require("./models/BackgroundJobs");
 //express
 const express = require("express");
 const mongoose = require("mongoose");
-
 //Rotas
 // const modelRoutes = require('./routes/modelRoutes');
 const modelflowsRoutes = require("./routes/modelflowsRoutes");
@@ -27,6 +26,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const BackgroundJobs = require("./models/BackgroundJobs");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 const Queues = require("./lib/Queue");
 const app = express();
 const setupSocketServer = require("./websockets/server");
@@ -35,7 +35,13 @@ const { createBullBoard } = require("bull-board");
 const { BullAdapter } = require("bull-board/bullAdapter");
 
 //Websockets
-const httpServer = setupSocketServer(app);
+
+const httpConfigObj = {
+  key: fs.readFileSync("./api-dev.zaivu.com/private.key", "utf8"),
+  cert: fs.readFileSync("./api-dev.zaivu.com/certificate.crt", "utf8"),
+};
+
+const httpServer = setupSocketServer(httpConfigObj, app);
 
 const serverAdapter = new ExpressAdapter();
 
