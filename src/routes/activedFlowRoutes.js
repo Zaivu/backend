@@ -26,6 +26,7 @@ const sendAllJobs = require("../utils/sendAllJobs");
 const sendMentions = require("../utils/sendMentions");
 const { confirmNode } = require("../lambdas/confirm-node");
 const addActivedFlow = require("../utils/addActivedFlow");
+const FlowStatus = require("../models/FlowStatus");
 
 router.use(requireAuth);
 
@@ -131,9 +132,11 @@ router.get("/pagination/:page", checkPermission, async (req, res) => {
         const relatedUsers = await getAccountableUsers(nodes);
 
         const edges = await ActivedEdge.find({ flowId: item._id });
+        const flowStatus = await FlowStatus.findOne({ flowId: item._id });
 
         return {
           ...item._doc,
+          flowStatus: flowStatus ? flowStatus : null,
           relatedUsers,
           elements: [...nodes, ...edges],
         };
@@ -203,6 +206,7 @@ router.get("/pagination/history/:page", checkPermission, async (req, res) => {
         });
 
         const relatedUsers = await getAccountableUsers(nodes);
+
         return {
           tenantId: item.tenantId,
           _id: item._id,
@@ -306,6 +310,8 @@ router.get("/flow/:flowId", async (req, res) => {
       (el) => el.flowId.toString() === flow._id.toString()
     );
 
+    const flowStatus = await FlowStatus.findOne({ flowId, tenantId });
+
     const newFlow = {
       tenantId,
       _id: flow._id,
@@ -320,6 +326,7 @@ router.get("/flow/:flowId", async (req, res) => {
       lastState: flow.lastState,
       accountable: flowAccountable,
       elements: [...newNodesWithPosts, ...newEdges],
+      flowStatus: flowStatus ? flowStatus : null,
     };
     res.send({ flow: newFlow });
   } catch (err) {
@@ -540,6 +547,65 @@ router.post(
   }
 );
 
+router.post("/flow/flowstatus", async (req, res) => {
+  try {
+    const { flowId, criticalDate, estimatedAt } = req.body;
+    const user = req.user;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
+
+    const exists = await ActivedFlow.findOne({ flowId, tenantId });
+
+    if (!exists) {
+      throw exceptions.entityNotFound("Fluxo não existe.");
+    }
+
+    const data = {
+      tenantId,
+      flowId,
+      criticalDate,
+      estimatedAt,
+      lastUpdate: DateTime.now(),
+    };
+
+    const flowStatus = new FlowStatus(data);
+    await flowStatus.save();
+
+    res.status(200).send(flowStatus);
+  } catch (err) {
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
+  }
+});
+
+router.put("/flow/flowstatus", async (req, res) => {
+  try {
+    const { flowId, estimatedAt } = req.body;
+    const user = req.user;
+    const tenantId = user.tenantId ? user.tenantId : user._id;
+
+    const exists = await FlowStatus.findOne({ flowId, tenantId });
+
+    if (!exists) {
+      throw exceptions.entityNotFound("FlowStatus não existe.");
+    }
+
+    const data = {
+      estimatedAt,
+      lastUpdate: DateTime.now(),
+    };
+
+    const flowStatus = await FlowStatus.findOneAndUpdate(
+      { flowId, tenantId },
+      data,
+      { new: true }
+    );
+
+    res.status(200).send(flowStatus);
+  } catch (err) {
+    const code = err.code ? err.code : "412";
+    res.status(code).send({ error: err.message, code });
+  }
+});
 //Update flow Accountable
 router.put("/accountable/", checkPermission, async (req, res) => {
   const { userId, id: flowId } = req.body;
