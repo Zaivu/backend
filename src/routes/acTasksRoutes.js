@@ -21,10 +21,18 @@ router.get("/activedtasks/pagination/:page", (req, res, next) =>
 router.get("/activedtasks/user/:id", (req, res, next) =>
   activedTasksController.getUserStats(req, res, next)
 );
+//Estatísticas geral de usuários
+router.get("/activedtasks/users", (req, res, next) =>
+  activedTasksController.getTasksByUsers(req, res, next)
+);
 //Puxar informações de usuários por Tenant
 router.get("/activedtasks/tenant", (req, res, next) =>
   activedTasksController.getUsersByTenant(req, res, next)
 );
+// //Informação de Usuários no módulo da dashboard
+// router.get("/activedtasks/dashboard/users", (req, res, next) =>
+//   activedTasksController.getDashboardUsersStats(req, res, next)
+// );
 //Atualizar Responsável por tarefa
 router.put("/activedtasks/accountable/", checkPermission, (req, res, next) =>
   activedTasksController.setAccountable(req, res, next)

@@ -12,6 +12,16 @@ const activedFlowSchema = new mongoose.Schema({
     type: Array,
     default: [],
   },
+  flowStatus: {
+    criticalDate: {
+      type: Date,
+      default: null,
+    },
+    estimatedAt: {
+      type: Date,
+      default: null,
+    },
+  },
   createdAt: {
     type: Date,
     required: true,
