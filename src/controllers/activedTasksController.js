@@ -58,6 +58,56 @@ class ActivedTasksController {
       res.status(code).send({ error: error.message, code });
     }
   }
+
+  async getDashboardUsersProductivity(req, res) {
+    try {
+      const user = req.user;
+      const tenantId = user.tenantId ? user.tenantId : user._id;
+
+      const { startDate } = req.query;
+      const data = await this.activedTasksService.getDashboardUsersProductivity(
+        tenantId,
+        startDate
+      );
+      res.status(200).send(data);
+    } catch (error) {
+      const code = error.code ? error.code : "412";
+      res.status(code).send({ error: error.message, code });
+    }
+  }
+
+  async getDashboardTasksProductivity(req, res) {
+    try {
+      const user = req.user;
+      const tenantId = user.tenantId ? user.tenantId : user._id;
+
+      const { startDate } = req.query;
+      const data = await this.activedTasksService.getDashboardTasksProductivity(
+        tenantId,
+        startDate
+      );
+      res.status(200).send(data);
+    } catch (error) {
+      const code = error.code ? error.code : "412";
+      res.status(code).send({ error: error.message, code });
+    }
+  }
+
+  async getDashboardFlowsProductivity(req, res) {
+    try {
+      const user = req.user;
+      const tenantId = user.tenantId ? user.tenantId : user._id;
+
+      const data = await this.activedTasksService.getDashboardFlowsProductivity(
+        tenantId
+      );
+      res.status(200).send(data);
+    } catch (error) {
+      const code = error.code ? error.code : "412";
+      res.status(code).send({ error: error.message, code });
+    }
+  }
+
   async setAccountable(req, res) {
     try {
       const { userId, id: taskId } = req.body;

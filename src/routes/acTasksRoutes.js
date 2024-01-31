@@ -29,10 +29,19 @@ router.get("/activedtasks/users", (req, res, next) =>
 router.get("/activedtasks/tenant", (req, res, next) =>
   activedTasksController.getUsersByTenant(req, res, next)
 );
-// //Informação de Usuários no módulo da dashboard
-// router.get("/activedtasks/dashboard/users", (req, res, next) =>
-//   activedTasksController.getDashboardUsersStats(req, res, next)
-// );
+//Informação de Usuários no módulo da dashboard
+router.get("/activedtasks/dashboard/productivity/users", (req, res, next) =>
+  activedTasksController.getDashboardUsersProductivity(req, res, next)
+);
+//Informação de Tarefas no módulo da dashboard
+router.get("/activedtasks/dashboard/productivity/tasks", (req, res, next) =>
+  activedTasksController.getDashboardTasksProductivity(req, res, next)
+);
+//Informação de Fluxos no módulo da dashboard
+router.get("/activedtasks/dashboard/productivity/flows", (req, res, next) =>
+  activedTasksController.getDashboardFlowsProductivity(req, res, next)
+);
+
 //Atualizar Responsável por tarefa
 router.put("/activedtasks/accountable/", checkPermission, (req, res, next) =>
   activedTasksController.setAccountable(req, res, next)

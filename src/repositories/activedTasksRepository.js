@@ -5,6 +5,8 @@ const { DateTime } = require("luxon");
 const getAvatar = require("../utils/getUserAvatar");
 const getTaskData = require("../utils/getTaskData");
 const getMomentStatus = require("../utils/getMomentStatus");
+const getUserAvatar = require("../utils/getUserAvatar");
+const getFlowMomentStatus = require("../utils/getFlowMomentStatus");
 
 class ActivedTasksRepository {
   async pagination(user, queries, page) {
@@ -97,6 +99,161 @@ class ActivedTasksRepository {
     const totalPages = Pagination.totalPages;
 
     return { pagination: taskPagination, totalPages, today: nowLocal };
+  }
+  async getDashboardUsersProductivity(tenantId, startDate) {
+    const userQuery = {
+      $or: [{ _id: tenantId }, { tenantId }],
+    };
+
+    const projectQuery = {
+      isDeleted: false,
+      tenantId,
+      ...(startDate && { $gte: { createdAt: startDate } }),
+    };
+    const liveProjects = await ActivedFlow.find(projectQuery);
+
+    const idList = liveProjects.map((item) => item._id);
+    const tenantUsers = await User.find({
+      ...userQuery,
+      isDeleted: false,
+      status: "active",
+    });
+
+    const queryTask = {
+      flowId: { $in: idList },
+      type: "task",
+      isDeleted: false,
+      "data.status": { $ne: "outscoped" },
+    };
+
+    const usersWithTasks = await Promise.all(
+      tenantUsers.map(async (user) => {
+        const taskMap = {
+          doing: [],
+          late: [],
+          done: [],
+          doneLate: [],
+          pending: [],
+        };
+
+        user = user.toObject({ getters: true, virtuals: true });
+        const avatarURL = await getUserAvatar(user._id);
+        (
+          await ActivedNode.find({
+            ...queryTask,
+            "data.accountable.userId": user._id,
+          })
+        ).forEach((task) => {
+          task = task.toObject({ getters: true, virtuals: true });
+          const moment = getMomentStatus(task);
+          if (moment?.currentStatus === "doing") {
+            taskMap.doing.push({ ...task, moment });
+          } else if (moment?.currentStatus === "done") {
+            taskMap.done.push({ ...task, moment });
+          } else if (moment?.currentStatus === "doneLate") {
+            taskMap.doneLate.push({ ...task, moment });
+          } else if (moment?.currentStatus === "late") {
+            taskMap.late.push({ ...task, moment });
+          } else {
+            taskMap.pending.push(task);
+          }
+        });
+
+        return {
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          taskMap,
+          avatarURL,
+        };
+      })
+    );
+
+    return usersWithTasks;
+  }
+  async getDashboardTasksProductivity(tenantId, startDate) {
+    const projectQuery = {
+      isDeleted: false,
+      tenantId,
+      ...(startDate && { $gte: { createdAt: startDate } }),
+    };
+    const liveProjects = await ActivedFlow.find(projectQuery);
+
+    const idList = liveProjects.map((item) => item._id);
+
+    const queryTask = {
+      flowId: { $in: idList },
+      type: "task",
+      isDeleted: false,
+    };
+
+    const [alreadyStartedTasks, pendingTasks] = await Promise.all([
+      ActivedNode.find({
+        ...queryTask,
+        "data.status": { $in: ["doing", "done"] },
+        ...(startDate && { $gte: { "data.startedAt": startDate } }),
+      }),
+      ActivedNode.find({ ...queryTask, "data.status": "pending" }),
+    ]);
+
+    const taskMap = {
+      doing: [],
+      late: [],
+      done: [],
+      doneLate: [],
+      pending: [],
+      nonAcc: [],
+    };
+
+    [...alreadyStartedTasks, ...pendingTasks].forEach((task) => {
+      task = task.toObject({ getters: true, virtuals: true });
+      const moment = getMomentStatus(task);
+
+      if (!task.data?.accountable && task.data.status !== "done")
+        taskMap.nonAcc.push(task);
+      if (moment?.currentStatus === "doing") {
+        taskMap.doing.push({ ...task, moment });
+      } else if (moment?.currentStatus === "done") {
+        taskMap.done.push({ ...task, moment });
+      } else if (moment?.currentStatus === "doneLate") {
+        taskMap.doneLate.push({ ...task, moment });
+      } else if (moment?.currentStatus === "late") {
+        taskMap.late.push({ ...task, moment });
+      } else {
+        taskMap.pending.push(task);
+      }
+    });
+
+    return taskMap;
+  }
+  async getDashboardFlowsProductivity(tenantId) {
+    const projectQuery = {
+      isDeleted: false,
+      tenantId,
+    };
+    const liveProjects = await ActivedFlow.find(projectQuery);
+    const flowsMap = {
+      done: [],
+      doneLate: [],
+      doing: [],
+      late: [],
+    };
+
+    liveProjects.forEach((flow) => {
+      const moment = getFlowMomentStatus(flow);
+
+      if (moment.currentStatus === "done") {
+        flowsMap.done.push(flow);
+      } else if (moment.currentStatus === "doneLate") {
+        flowsMap.doneLate.push(flow);
+      } else if (moment.currentStatus === "late") {
+        flowsMap.late.push(flow);
+      } else {
+        flowsMap.doing.push(flow);
+      }
+    });
+
+    return flowsMap;
   }
   async getUserStats(user, dates) {
     const { initial, final } = dates;

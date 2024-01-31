@@ -62,6 +62,25 @@ class ActivedTasksService {
 
     return relatedUsers;
   }
+  async getDashboardUsersProductivity(tenantId, startDate) {
+    return await this.activedTasksRepository.getDashboardUsersProductivity(
+      tenantId,
+      startDate
+    );
+  }
+
+  async getDashboardTasksProductivity(tenantId, startDate) {
+    return await this.activedTasksRepository.getDashboardTasksProductivity(
+      tenantId,
+      startDate
+    );
+  }
+
+  async getDashboardFlowsProductivity(tenantId) {
+    return await this.activedTasksRepository.getDashboardFlowsProductivity(
+      tenantId
+    );
+  }
   async setAccountable(taskId, userId, tenantId) {
     const user = await this.activedTasksRepository.getUser({ _id: userId });
 
