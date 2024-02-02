@@ -550,8 +550,7 @@ router.put("/flowstatus", async (req, res) => {
     }
 
     const data = {
-      estimatedAt,
-      ...(criticalDate & { criticalDate }),
+      ...(estimatedAt & { estimatedAt }, criticalDate),
     };
 
     const flowStatus = await ActivedFlow.findOneAndUpdate(

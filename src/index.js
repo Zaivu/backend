@@ -26,7 +26,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const BackgroundJobs = require("./models/BackgroundJobs");
 const cors = require("cors");
 const path = require("path");
-//const fs = require("fs");
+const fs = require("fs");
 const Queues = require("./lib/Queue");
 const app = express();
 const setupSocketServer = require("./websockets/server");
@@ -35,14 +35,14 @@ const { createBullBoard } = require("bull-board");
 const { BullAdapter } = require("bull-board/bullAdapter");
 
 //Websockets
-/*
-const httpConfigObj = {
+
+const certObj = {
   key: fs.readFileSync("./api-dev.zaivu.com/private.key"),
   cert: fs.readFileSync("./api-dev.zaivu.com/certificate.crt"),
   ca: fs.readFileSync("./api-dev.zaivu.com/ca_bundle.crt"),
 };
-*/
-const httpServer = setupSocketServer(app);
+
+const { httpServer, httpsServer } = setupSocketServer(certObj, app);
 
 const serverAdapter = new ExpressAdapter();
 
@@ -65,7 +65,6 @@ app.use("/admin/queues", router);
 app.get("/", (req, res) => {
   res.status(200).send("ok");
 });
-
 app.use(authRoutes);
 app.use(usersRoutes);
 app.use(notificationRoutes);
@@ -87,5 +86,9 @@ mongoose.connection.on("error", (err) => {
 });
 
 httpServer.listen(process.env.PORT || 5000, () => {
-  console.log("Listening on port 5000");
+  console.log("Listening on port 5000 HTTP");
+});
+
+httpsServer.listen(443, () => {
+  console.log("Listening on port 443 HTTPS");
 });

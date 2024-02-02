@@ -9,7 +9,7 @@ module.exports = function (flow) {
   const criticalDateMillis = DateTime.fromISO(criticalDate).toMillis();
 
   //Caso a data estimada esteja após a data crítica
-  if (estimatedAtMillis > criticalDateMillis) {
+  if (estimatedAtMillis < criticalDateMillis) {
     return { currentStatus: flow.finishedAt ? "doneLate" : "late" };
   } else {
     return { currentStatus: flow.finishedAt ? "done" : "doing" };
