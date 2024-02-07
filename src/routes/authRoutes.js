@@ -126,7 +126,6 @@ router.post("/auth/sign-up/", async (req, res) => {
     return res.status(422).send(err.message);
   }
 });
-
 //create account for 'gerente' | 'colaborador'
 //! deprecated -> So acessada por insomnia / postman
 router.post("/auth/create-user/colab", async (req, res) => {
@@ -162,7 +161,6 @@ router.post("/auth/create-user/colab", async (req, res) => {
     return res.status(422).send(err.message);
   }
 });
-
 //Criar conta admin
 router.post("/auth/create-user/admin", async (req, res) => {
   const { username, password, email, enterpriseName = "" } = req.body;
@@ -191,7 +189,6 @@ router.post("/auth/create-user/admin", async (req, res) => {
     return res.status(422).send(err.message);
   }
 });
-
 //Gerar new token
 router.post("/auth/new-token", async (req, res) => {
   const { refreshToken, userId } = req.body;
@@ -368,4 +365,3 @@ router.post("/auth/new-job", async (req, res) => {
   }
 });
 module.exports = router;
-

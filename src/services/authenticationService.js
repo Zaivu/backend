@@ -11,17 +11,31 @@ class AuthenticationService {
   async validateToken(token) {
     const query = { resetToken: token };
 
+    //userService
     const user = await this.authenticationRepository.getUser(query);
 
     if (!user) {
       throw exceptions.entityNotFound("Usuário não encontrado");
     }
 
-    return await this.authenticationRepository.validateToken(token);
+    const enterpriseUser = await this.authenticationRepository.getUser({
+      _id: user.tenantId,
+    });
+
+    if (!enterpriseUser) {
+      throw exceptions.entityNotFound("EnterpriseUser não encontrado");
+    }
+
+    return {
+      email: user.email,
+      username: user.username,
+      enterpriseName: user.enterpriseName,
+    };
   }
   async signIn(email, password) {
     const query = { isDeleted: false, email };
 
+    //userService
     const user = await this.authenticationRepository.getUser(query);
 
     if (!user || user.comparePassword(password)) {
@@ -32,19 +46,22 @@ class AuthenticationService {
       user
     );
 
-    const avatarURL = await this.authenticationRepository.getAvatar(user);
-
-    const userCopy = JSON.parse(JSON.stringify(user));
-
-    delete userCopy["password"];
-
+    //userService
+    const avatarURL = await this.authenticationRepository.getAvatar(user._id);
     return {
       token,
       refreshToken,
-      user: { ...userCopy, avatarURL },
+      user: {
+        username: user.username,
+        _id: user._id,
+        email: user.email,
+        rank: user.rank,
+        avatarURL,
+      },
     };
   }
   async signUp(email, password, username) {
+    //userService
     const user = await this.authenticationRepository.getUser({
       isDeleted: false,
       email,
@@ -57,12 +74,27 @@ class AuthenticationService {
     const salt = await bcrypt.genSalt(10);
     const newPass = await bcrypt.hash(password, salt);
 
-    return await this.authenticationRepository.signUp(
-      { ...user, username },
-      newPass
-    );
+    const userData = {
+      password: newPass,
+      username,
+      status: "active",
+      expireToken: null,
+      resetToken: null,
+    };
+    //Trocar para userService
+    return await this.authenticationRepository.updateUser(user._id, userData);
   }
   async createUserAdmin(email, password, username, enterpriseName) {
+    //userService
+    const userExists = await this.authenticationRepository.getUser({
+      email,
+      isDeleted: false,
+    });
+
+    if (userExists) {
+      throw exceptions.alreadyExists("Usuário já existe");
+    }
+
     const salt = await bcrypt.genSalt(10);
     const newPass = await bcrypt.hash(password, salt);
 
@@ -74,14 +106,17 @@ class AuthenticationService {
       status: "active",
       enterpriseName,
     };
-
+    //userService
     const user = await this.authenticationRepository.createUser(userData);
 
-    const userCopy = JSON.parse(JSON.stringify(user));
-
-    delete userCopy["password"];
-
-    return { user: userCopy };
+    return {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      rank: user.rank,
+      status: user.status,
+      enterpriseName,
+    };
   }
   async createUserColab(tenantId, email, username, password, rank) {
     const tenantUser = await this.authenticationRepository.getUser({
@@ -107,25 +142,54 @@ class AuthenticationService {
 
     const user = await this.authenticationRepository.createUser(userData);
 
-    const userCopy = JSON.parse(JSON.stringify(user));
-
-    delete userCopy["password"];
-
-    return { user: userCopy };
+    return {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      rank: user.rank,
+      status: user.status,
+      enterpriseName: tenantUser.enterpriseName,
+    };
   }
   async newToken(userId, refreshToken) {
     return await this.authenticationRepository.newToken(userId, refreshToken);
   }
   async resetPassword(email) {
+    //userService
     const user = await this.authenticationRepository.getUser({ email });
-    return await this.authenticationRepository.resetPassword(user);
+
+    if (!user) {
+      throw exceptions.entityNotFound("Usuário não existe");
+    }
+
+    const buffer = crypto.randomBytes(32);
+    const token = buffer.toString("hex");
+
+    const data = {
+      resetToken: token,
+      expireToken: Date.now() + 360000,
+    };
+
+    //userService
+    await this.authenticationRepository.updateUser(user._id, data);
+
+    const emailContent = {
+      subject: "Redefinir senha",
+      body: `Para redefinir sua senha (irá expirar em uma hora o link): <a href="${process.env.APP_URL}resetpassword/${token}">Clique aqui</a>`,
+    };
+
+    return await this.authenticationRepository.sendEmail(
+      process.env.DEFAULT_SUPPORT_EMAIL,
+      user.email,
+      emailContent
+    );
   }
   async newPassword(password, resetToken) {
     const query = {
       resetToken,
       expireToken: { $gt: Date.now() },
     };
-
+    //userService
     const user = await this.authenticationRepository.getUser(query);
 
     if (!user) {
@@ -137,9 +201,11 @@ class AuthenticationService {
 
     const data = { password: newPass, resetToken: null, expireToken: null };
 
-    return await this.authenticationRepository.updateUser(user, data);
+    //userService
+    return await this.authenticationRepository.updateUser(user._id, data);
   }
   async editPassword(id, oldPass, newPass) {
+    //userService
     const user = await this.authenticationRepository.getUser({ _id: id });
 
     if (!user || user.comparePassword(oldPass)) {
@@ -149,11 +215,13 @@ class AuthenticationService {
 
     const password = await bcrypt.hash(newPass, salt);
 
+    //userService
     return await this.authenticationRepository.updateUser(user._id, {
       password,
     });
   }
   async editUsername(id, username) {
+    //userService
     const user = await this.authenticationRepository.getUser({
       isDeleted: false,
       _id: id,
@@ -163,16 +231,18 @@ class AuthenticationService {
       throw exceptions.entityNotFound("Usuário não encontrado");
     }
 
+    //userService
     return await this.authenticationRepository.updateUser(user, { username });
   }
   async editEmail(id, email) {
+    //userService
     const user = await this.authenticationRepository.getUser({
       isDeleted: false,
       email,
     });
 
     if (user) {
-      throw exceptions.entityNotFound("Email já existe");
+      throw exceptions.entityNotFound("Email cadastrado já existe");
     }
 
     const currentUser = await this.authenticationRepository.getUser({
@@ -183,7 +253,7 @@ class AuthenticationService {
       throw exceptions.entityNotFound("Usuário não encontrado");
     }
 
-    return await this.authenticationRepository.updateUser(currentUser, {
+    return await this.authenticationRepository.updateUser(currentUser._id, {
       email,
     });
   }
@@ -197,7 +267,7 @@ class AuthenticationService {
       throw exceptions.entityNotFound("Usuário não encontrado");
     }
 
-    return await this.authenticationRepository.updateUser(user, {
+    return await this.authenticationRepository.updateUser(user._id, {
       enterpriseName,
     });
   }
