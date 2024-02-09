@@ -16,9 +16,16 @@ class AuthenticationRepository {
     return await getUserAvatar(user._id);
   }
   async signJWT(user) {
-    return jwt.sign({ userId: user._id }, secret.config.jwtSecret, {
+    const token = jwt.sign({ userId: user._id }, secret.config.jwtSecret, {
       expiresIn: secret.config.jwtLife,
     });
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      secret.config.jwtRefreshSecret,
+      { expiresIn: secret.config.jwtRefreshLife }
+    );
+
+    return { token, refreshToken };
   }
   //userRepository
   async createUser(data) {

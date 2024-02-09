@@ -1,10 +1,11 @@
 const exceptions = require("../exceptions");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+
 class AuthenticationService {
   constructor(authenticationRepository) {
     this.authenticationRepository = authenticationRepository;
   }
-
   async verifyToken() {
     return await this.authenticationRepository.verifyToken();
   }
@@ -37,18 +38,17 @@ class AuthenticationService {
 
     //userService
     const user = await this.authenticationRepository.getUser(query);
-
-    if (!user || user.comparePassword(password)) {
+    if (!user || !(await user.comparePassword(password))) {
       throw exceptions.entityNotFound("Email ou Senha incorretos");
     }
 
     const { token, refreshToken } = await this.authenticationRepository.signJWT(
       user
     );
-
     //userService
     const avatarURL = await this.authenticationRepository.getAvatar(user._id);
-    return {
+
+    const data = {
       token,
       refreshToken,
       user: {
@@ -59,6 +59,8 @@ class AuthenticationService {
         avatarURL,
       },
     };
+
+    return data;
   }
   async signUp(email, password, username) {
     //userService
@@ -118,7 +120,7 @@ class AuthenticationService {
       enterpriseName,
     };
   }
-  async createUserColab(tenantId, email, username, password, rank) {
+  async createUserColab(tenantId, email, password, username, rank) {
     const tenantUser = await this.authenticationRepository.getUser({
       isDeleted: false,
       _id: tenantId,
@@ -156,7 +158,10 @@ class AuthenticationService {
   }
   async resetPassword(email) {
     //userService
-    const user = await this.authenticationRepository.getUser({ email });
+    const user = await this.authenticationRepository.getUser({
+      email,
+      isDeleted: false,
+    });
 
     if (!user) {
       throw exceptions.entityNotFound("Usuário não existe");
@@ -175,7 +180,7 @@ class AuthenticationService {
 
     const emailContent = {
       subject: "Redefinir senha",
-      body: `Para redefinir sua senha (irá expirar em uma hora o link): <a href="${process.env.APP_URL}resetpassword/${token}">Clique aqui</a>`,
+      body: `Para redefinir sua senha (irá expirar em uma hora o link): <a href="${process.env.APP_URL}/resetpassword/${token}">Clique aqui</a>`,
     };
 
     return await this.authenticationRepository.sendEmail(
@@ -211,6 +216,7 @@ class AuthenticationService {
     if (!user || user.comparePassword(oldPass)) {
       throw exceptions.entityNotFound("Usuário não encontrado");
     }
+
     const salt = await bcrypt.genSalt(10);
 
     const password = await bcrypt.hash(newPass, salt);
@@ -233,29 +239,6 @@ class AuthenticationService {
 
     //userService
     return await this.authenticationRepository.updateUser(user, { username });
-  }
-  async editEmail(id, email) {
-    //userService
-    const user = await this.authenticationRepository.getUser({
-      isDeleted: false,
-      email,
-    });
-
-    if (user) {
-      throw exceptions.entityNotFound("Email cadastrado já existe");
-    }
-
-    const currentUser = await this.authenticationRepository.getUser({
-      _id: id,
-    });
-
-    if (!currentUser) {
-      throw exceptions.entityNotFound("Usuário não encontrado");
-    }
-
-    return await this.authenticationRepository.updateUser(currentUser._id, {
-      email,
-    });
   }
   async editEnterpriseName(id, enterpriseName) {
     const user = this.authenticationRepository.getUser({

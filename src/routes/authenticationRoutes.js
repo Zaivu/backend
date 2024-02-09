@@ -16,7 +16,7 @@ const authenticationController = new AuthenticationController(
 router.get("/auth/verify-token", requireAuth, async (req, res, next) =>
   authenticationController.verifyToken(req, res, next)
 );
-// Validar Token JWT
+// Validar Token JWT, utilizado quando precisa checar a validade de token de nova conta
 router.get("/auth/validate-token/:token", async (req, res, next) =>
   authenticationController.validateToken(req, res, next)
 );
@@ -36,7 +36,7 @@ router.post("/auth/create-user/admin", async (req, res, next) =>
 router.post("/auth/create-user/colab", async (req, res, next) =>
   authenticationController.createUserColab(req, res, next)
 );
-//Gerar um novo token
+//Gerar um novo token, via API interceptors no cliente
 router.post("/auth/new-token", async (req, res, next) =>
   authenticationController.newToken(req, res, next)
 );
@@ -44,10 +44,12 @@ router.post("/auth/new-token", async (req, res, next) =>
 router.put("/auth/reset-password-email", async (req, res, next) =>
   authenticationController.resetPassword(req, res, next)
 );
+
+//Nova senha
 router.put("/auth/new-password", async (req, res, next) =>
   authenticationController.newPassword(req, res, next)
 );
-//Editar Senha
+//Editar Senha - Deprecated antigo zaivu
 router.put("/auth/edit-password", async (req, res, next) =>
   authenticationController.editPassword(req, res, next)
 );

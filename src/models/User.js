@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
-const mongoosePaginate = require('mongoose-paginate-v2');
-const bcrypt = require('bcrypt');
+const mongoose = require("mongoose");
+const mongoosePaginate = require("mongoose-paginate-v2");
+const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -17,8 +17,8 @@ const userSchema = new mongoose.Schema({
   },
   rank: {
     type: String,
-    enum: ['admin', 'gerente', 'colaborador'],
-    default: 'colaborador',
+    enum: ["admin", "gerente", "colaborador"],
+    default: "colaborador",
   },
   rankNumber: {
     type: Number,
@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    default: 'pending',
+    default: "pending",
   },
   resetToken: {
     type: String,
@@ -42,9 +42,9 @@ const userSchema = new mongoose.Schema({
   },
   tenantId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
     required: function () {
-      return this.rank === 'admin' ? false : true;
+      return this.rank === "admin" ? false : true;
     },
   },
   isDeleted: {
@@ -53,27 +53,6 @@ const userSchema = new mongoose.Schema({
     required: true,
   },
 });
-
-// userSchema.pre("save", function (next) {
-//   const user = this;
-//   if (!user.isModified("password")) {
-//     return next();
-//   }
-
-//   bcrypt.genSalt(10, (err, salt) => {
-//     if (err) {
-//       return next(err);
-//     }
-
-//     bcrypt.hash(user.password, salt, (err, hash) => {
-//       if (err) {
-//         return next(err);
-//       }
-//       user.password = hash;
-//       next();
-//     });
-//   });
-// });
 
 userSchema.methods.comparePassword = function (candidatePassword) {
   const user = this;
@@ -85,7 +64,7 @@ userSchema.methods.comparePassword = function (candidatePassword) {
       }
 
       if (!isMatch) {
-        return reject({ message: 'incorrect credentials', code: 401 });
+        return reject({ message: "incorrect credentials", code: 401 });
       }
 
       resolve(true);
@@ -93,9 +72,9 @@ userSchema.methods.comparePassword = function (candidatePassword) {
   });
 };
 
-userSchema.pre('save', function (next) {
+userSchema.pre("save", function (next) {
   // Update rankNumber based on rank value
-  if (this.isModified('rank')) {
+  if (this.isModified("rank")) {
     const rankValues = {
       admin: 1,
       gerente: 2,
@@ -108,4 +87,4 @@ userSchema.pre('save', function (next) {
   next();
 });
 userSchema.plugin(mongoosePaginate);
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model("User", userSchema);

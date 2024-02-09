@@ -45,8 +45,8 @@ class AuthenticationController {
 
       const result = await this.authenticationService.signUp(
         email,
-        username,
-        password
+        password,
+        username
       );
       res.status(201).send(result);
     } catch (error) {
@@ -60,8 +60,8 @@ class AuthenticationController {
 
       const result = await this.authenticationService.createUserAdmin(
         email,
-        username,
         password,
+        username,
         enterpriseName
       );
       res.status(201).send(result);
@@ -83,8 +83,8 @@ class AuthenticationController {
       const result = await this.authenticationService.createUserColab(
         tenantId,
         email,
-        username,
         password,
+        username,
         rank
       );
       res.status(201).send(result);
@@ -121,7 +121,7 @@ class AuthenticationController {
     try {
       const { password, resetToken } = req.body;
 
-      const result = await this.authenticationService.editPassword(
+      const result = await this.authenticationService.newPassword(
         password,
         resetToken
       );
@@ -160,18 +160,7 @@ class AuthenticationController {
       res.status(code).send({ error: error.message, code });
     }
   }
-  async editEmail(req, res) {
-    try {
-      const { id, email } = req.body;
 
-      const result = await this.authenticationService.editEmail(id, email);
-
-      res.status(200).send(result);
-    } catch (error) {
-      const code = error.code ? error.code : "412";
-      res.status(code).send({ error: error.message, code });
-    }
-  }
   async editEnterpriseName(req, res) {
     try {
       const { id, enterpriseName } = req.body;
