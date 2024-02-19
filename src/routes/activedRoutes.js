@@ -134,7 +134,7 @@ router.get("/actived-flows/:enterpriseId/:page/:type", async (req, res) => {
       (await ActivedFlow.count({
         enterpriseId,
         status: type === "finished" ? ["finished"] : { $ne: ["finished"] },
-      })) / 5
+      })) / 5,
     );
 
     const flows = await ActivedFlow.find({
@@ -149,10 +149,10 @@ router.get("/actived-flows/:enterpriseId/:page/:type", async (req, res) => {
 
     const formatedFlows = flows.map((item) => {
       const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === item._id.toString()
+        (el) => el.flowId.toString() === item._id.toString(),
       );
       const newEdges = edges.filter(
-        (el) => el.flowId.toString() === item._id.toString()
+        (el) => el.flowId.toString() === item._id.toString(),
       );
 
       const flow = {
@@ -190,10 +190,10 @@ router.get(
       const edges = await ActivedEdge.find({ flowId: flow._id });
 
       const newNodes = nodes.filter(
-        (el) => el.flowId.toString() === flow._id.toString()
+        (el) => el.flowId.toString() === flow._id.toString(),
       );
       const newEdges = edges.filter(
-        (el) => el.flowId.toString() === flow._id.toString()
+        (el) => el.flowId.toString() === flow._id.toString(),
       );
 
       const newFlow = {
@@ -214,7 +214,7 @@ router.get(
     } catch (err) {
       res.status(422).send({ error: err.message });
     }
-  }
+  },
 );
 
 router.get(
@@ -235,7 +235,7 @@ router.get(
             $regex: client === "undefined" ? RegExp(".*") : client,
             $options: "i",
           },
-        })) / 5
+        })) / 5,
       );
 
       const flows = await ActivedFlow.find({
@@ -259,10 +259,10 @@ router.get(
 
       const formatedFlows = flows.map((item) => {
         const newNodes = nodes.filter(
-          (el) => el.flowId.toString() === item._id.toString()
+          (el) => el.flowId.toString() === item._id.toString(),
         );
         const newEdges = edges.filter(
-          (el) => el.flowId.toString() === item._id.toString()
+          (el) => el.flowId.toString() === item._id.toString(),
         );
 
         const flow = {
@@ -286,7 +286,7 @@ router.get(
     } catch (err) {
       res.status(422).send({ error: err.message });
     }
-  }
+  },
 );
 
 router.post("/actived-flows/actived-flow/new", async (req, res) => {
@@ -385,26 +385,26 @@ router.post("/actived-flows/actived-flow/new", async (req, res) => {
                       : undefined,
                   }
                 : item.type === "timerEvent"
-                ? {
-                    ...item.data,
-                    status: doing.find((e) => e === item.id)
-                      ? "doing"
-                      : "pending",
-                    startedAt: doing.find((e) => e === item.id)
-                      ? nowLocal
-                      : undefined,
-                  }
-                : {
-                    ...item.data,
-                    status:
-                      item.type === "eventStart"
-                        ? "done"
-                        : doing.find((e) => e === item.id)
+                  ? {
+                      ...item.data,
+                      status: doing.find((e) => e === item.id)
                         ? "doing"
-                        : item.data.status !== "model"
-                        ? item.data.status
                         : "pending",
-                  },
+                      startedAt: doing.find((e) => e === item.id)
+                        ? nowLocal
+                        : undefined,
+                    }
+                  : {
+                      ...item.data,
+                      status:
+                        item.type === "eventStart"
+                          ? "done"
+                          : doing.find((e) => e === item.id)
+                            ? "doing"
+                            : item.data.status !== "model"
+                              ? item.data.status
+                              : "pending",
+                    },
             flowId: activedFlow._id,
             targetPosition: item.targetPosition,
             sourcePosition: item.sourcePosition,
@@ -412,7 +412,7 @@ router.post("/actived-flows/actived-flow/new", async (req, res) => {
           });
           await node.save();
         }
-      })
+      }),
     );
 
     const nodes = await ActivedNode.find({ flowId: activedFlow._id });
@@ -455,7 +455,7 @@ router.delete(
     } catch (err) {
       res.status(422).send({ error: err.message });
     }
-  }
+  },
 );
 
 router.put("/actived-flows/actived-flow/edit-comment", async (req, res) => {
@@ -468,13 +468,13 @@ router.put("/actived-flows/actived-flow/edit-comment", async (req, res) => {
       newItem = await ActivedFlow.findOneAndUpdate(
         { _id: flowId },
         { comments: value },
-        { new: true }
+        { new: true },
       );
     } else if (type === "task") {
       newItem = await ActivedNode.findOneAndUpdate(
         { flowId, id: taskId },
         { $set: { "data.comments": value } },
-        { new: true }
+        { new: true },
       );
     }
 
@@ -491,7 +491,7 @@ router.put("/actived-flows/actived-flow/edit-task", async (req, res) => {
     const newTask = await ActivedNode.findOneAndUpdate(
       { flowId, id: taskId },
       { $set: { "data.subtasks": subtasks, "data.accountable": accountable } },
-      { new: true }
+      { new: true },
     );
 
     res.send({ newTask });
@@ -504,15 +504,17 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
   const { flowId, taskId, edgeId } = req.body;
 
   const nowLocal = moment().utcOffset(-180);
-
   try {
     //////////////ATUAL
 
+    let subtasks;
+
     const taskExpired = await ActivedNode.findOne({ _id: taskId });
 
-    const subtasks = taskExpired.data.subtasks.map((item) => {
-      return { ...item, checked: true };
-    });
+    if (taskExpired.type === "task")
+      subtasks = taskExpired.data.subtasks.map((item) => {
+        return { ...item, checked: true };
+      });
 
     const nodes = await ActivedNode.find({ flowId });
     const edges = await ActivedEdge.find({ flowId });
@@ -521,34 +523,48 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
       lastState: [...nodes, ...edges],
     });
 
-    const taskUpdated = await ActivedNode.findOneAndUpdate(
-      { _id: taskId },
-      {
-        $set: {
-          "data.status": "done",
-          "data.finishedAt": nowLocal,
-          "data.expired":
-            moment(taskExpired.data.startedAt)
-              .add(taskExpired.data.expiration.number, "hours")
-              .diff(nowLocal, "hours", true) < 0
-              ? true
-              : false,
-          "data.subtasks": subtasks,
+    let taskUpdated;
+
+    if (taskExpired.type === "task") {
+      taskUpdated = await ActivedNode.findOneAndUpdate(
+        { _id: taskId },
+        {
+          $set: {
+            "data.status": "done",
+            "data.finishedAt": nowLocal,
+            "data.expired":
+              moment(taskExpired.data.startedAt)
+                .add(taskExpired.data.expiration.number, "hours")
+                .diff(nowLocal, "hours", true) < 0
+                ? true
+                : false,
+            "data.subtasks": subtasks,
+          },
         },
-      }
-    );
+      );
+    } else {
+      taskUpdated = await ActivedNode.findOneAndUpdate(
+        { _id: taskId },
+        {
+          $set: {
+            "data.status": "done",
+            "data.finishedAt": nowLocal,
+          },
+        },
+      );
+    }
 
     let arrowUpdated;
 
-    if (taskUpdated.type === "task") {
+    if (taskUpdated.type === "task" || taskUpdated.type === "timerEvent") {
       arrowUpdated = await ActivedEdge.findOneAndUpdate(
         { source: taskUpdated.id, flowId },
-        { $set: { "data.status": "done" } }
+        { $set: { "data.status": "done" } },
       );
     } else {
       arrowUpdated = await ActivedEdge.findOneAndUpdate(
         { _id: edgeId },
-        { $set: { "data.status": "done" } }
+        { $set: { "data.status": "done" } },
       );
     }
 
@@ -568,7 +584,7 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
 
       await ActivedNode.findOneAndUpdate(
         { _id: nextTask._id },
-        { $set: { "data.status": "doing", "data.startedAt": nowLocal } }
+        { $set: { "data.status": "doing", "data.startedAt": nowLocal } },
       );
 
       if (newStatus[0] !== "finished") {
@@ -577,7 +593,7 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
             item.data.status === "doing" &&
             (item.type === "task" ||
               item.type === "conditional" ||
-              item.type === "timerEvent")
+              item.type === "timerEvent"),
         );
         newStatus = filter.map((item) => item.id);
         if (
@@ -592,7 +608,7 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
       const nodes = await ActivedNode.find({ flowId });
 
       nodes.map((item) =>
-        item.id === nextTask.id ? (item.data.status = "done") : null
+        item.id === nextTask.id ? (item.data.status = "done") : null,
       );
 
       walkParallelLoop(nodes, edges, nextTask, (node) => {
@@ -619,13 +635,13 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
       await Promise.all(
         nodes.map(async (item) => {
           await ActivedNode.findOneAndUpdate({ _id: item._id }, item);
-        })
+        }),
       );
 
       await Promise.all(
         edges.map(async (item) => {
           await ActivedEdge.findOneAndUpdate({ _id: item._id }, item);
-        })
+        }),
       );
 
       if (newStatus[0] !== "finished") {
@@ -634,7 +650,7 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
             item.data.status === "doing" &&
             (item.type === "task" ||
               item.type === "conditional" ||
-              item.type === "timerEvent")
+              item.type === "timerEvent"),
         );
         newStatus = filter.map((item) => item.id);
         if (
@@ -662,19 +678,19 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
           if (node.source) {
             node.data.status = "done";
           }
-        }
+        },
       );
 
       await Promise.all(
         nodes.map(async (item) => {
           await ActivedNode.findOneAndUpdate({ _id: item._id }, item);
-        })
+        }),
       );
 
       await Promise.all(
         edges.map(async (item) => {
           await ActivedEdge.findOneAndUpdate({ _id: item._id }, item);
-        })
+        }),
       );
 
       if (newStatus[0] !== "finished") {
@@ -683,7 +699,7 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
             item.data.status === "doing" &&
             (item.type === "task" ||
               item.type === "conditional" ||
-              item.type === "timerEvent")
+              item.type === "timerEvent"),
         );
         newStatus = filter.map((item) => item.id);
         if (
@@ -698,19 +714,19 @@ router.put("/actived-flows/actived-flow/send-task", async (req, res) => {
 
       await ActivedNode.findOneAndUpdate(
         { _id: nextTask._id },
-        { $set: { "data.status": "done" } }
+        { $set: { "data.status": "done" } },
       );
     }
 
     if (newStatus[0] === "finished") {
       await ActivedFlow.findOneAndUpdate(
         { _id: flowId },
-        { status: newStatus, finishedAt: nowLocal }
+        { status: newStatus, finishedAt: nowLocal },
       );
     } else {
       await ActivedFlow.findOneAndUpdate(
         { _id: flowId },
-        { status: newStatus }
+        { status: newStatus },
       );
     }
 
@@ -755,7 +771,7 @@ router.put("/actived-flows/actived-flow/flow-post/new", async (req, res) => {
     const newFlow = await ActivedFlow.findOneAndUpdate(
       { _id: flowId },
       { posts },
-      { new: true }
+      { new: true },
     );
 
     res.send({ newFlow });
@@ -777,13 +793,13 @@ router.put("/actived-flows/actived-flow/undo-task", async (req, res) => {
         } else {
           await ActivedNode.findByIdAndUpdate(item._id, { ...item });
         }
-      })
+      }),
     );
 
     const newFlow = await ActivedFlow.findByIdAndUpdate(
       flowId.flowId,
       { lastState: [] },
-      { new: true }
+      { new: true },
     );
     const nodes = await ActivedNode.find({ flowId: flowId.flowId });
     const edges = await ActivedEdge.find({ flowId: flowId.flowId });
@@ -814,7 +830,7 @@ router.put("/actived-flows/actived-flow/assign-tasks", async (req, res) => {
   try {
     await ActivedNode.updateMany(
       { type: "task", flowId },
-      { "data.accountable": employeer }
+      { "data.accountable": employeer },
     );
 
     const flow = await ActivedFlow.findById(flowId);
@@ -859,7 +875,7 @@ router.put(
     });
 
     return res.json(post);
-  }
+  },
 );
 
 router.delete(
@@ -871,7 +887,7 @@ router.delete(
     await post.remove();
 
     res.send();
-  }
+  },
 );
 
 router.get(
@@ -880,7 +896,7 @@ router.get(
     const { originalId } = req.params;
     const posts = await Post.find({ originalId });
     res.send(posts);
-  }
+  },
 );
 
 router.put("/actived-flows/actived-flow/task/new-subtask", async (req, res) => {
@@ -890,7 +906,7 @@ router.put("/actived-flows/actived-flow/task/new-subtask", async (req, res) => {
     const newNode = await ActivedNode.findOneAndUpdate(
       { _id: taskId },
       { $push: { "data.subtasks": { title: subtask, checked: false } } },
-      { new: true }
+      { new: true },
     );
 
     res.send({ newNode });
@@ -908,14 +924,14 @@ router.put(
       const newNode = await ActivedNode.findOneAndUpdate(
         { _id: taskId },
         { $pull: { "data.subtasks": subtask } },
-        { new: true }
+        { new: true },
       );
 
       res.send({ newNode });
     } catch (err) {
       res.status(422).send({ error: err.message });
     }
-  }
+  },
 );
 
 router.put(
@@ -937,14 +953,14 @@ router.put(
       const newNode = await ActivedNode.findOneAndUpdate(
         { _id: taskId },
         { $set: { "data.subtasks": subtasks } },
-        { new: true }
+        { new: true },
       );
 
       res.send({ newNode });
     } catch (err) {
       res.status(422).send({ error: err.message });
     }
-  }
+  },
 );
 
 router.put("/actived-flows/actived-flow/task/new-title", async (req, res) => {
@@ -954,7 +970,7 @@ router.put("/actived-flows/actived-flow/task/new-title", async (req, res) => {
     const newNode = await ActivedNode.findOneAndUpdate(
       { _id: taskId },
       { $set: { "data.label": title } },
-      { new: true }
+      { new: true },
     );
 
     res.status(200).send({ newNode });
@@ -970,7 +986,7 @@ router.put("/actived-flows/actived-flow/new-title", async (req, res) => {
     const newFlow = await ActivedFlow.findOneAndUpdate(
       { _id: flowId },
       { $set: { title: title } },
-      { new: true }
+      { new: true },
     );
 
     res.status(200).send({ newFlow });
@@ -992,7 +1008,7 @@ router.put("/actived-flows/actived-flow/task/new-post", async (req, res) => {
     const newTask = await ActivedNode.findOneAndUpdate(
       { _id: taskId },
       { "data.posts": posts },
-      { new: true }
+      { new: true },
     );
 
     res.send({ newTask });
@@ -1026,14 +1042,14 @@ router.put(
       const newTask = await ActivedNode.findOneAndUpdate(
         { _id: taskId },
         { $set: { "data.subtasks": subtasks } },
-        { new: true }
+        { new: true },
       );
 
       res.send({ newTask });
     } catch (err) {
       res.status(422).send({ error: err.message });
     }
-  }
+  },
 );
 
 module.exports = router;
