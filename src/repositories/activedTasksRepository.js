@@ -196,6 +196,35 @@ class ActivedTasksRepository {
       ActivedNode.find({ ...queryTask, "data.status": "pending" }),
     ]);
 
+    const accountableIds = [...alreadyStartedTasks, ...pendingTasks]
+      .filter((task) => task.data?.accountable?.userId)
+      .map((task) => task.data.accountable.userId)
+      .filter((id, index, self) => self.indexOf(id) === index);
+
+    const accountables = await this.getTenantUsersWithAvatars({
+      _id: { $in: accountableIds },
+    });
+
+    const accountableMap = accountables.reduce((map, user) => {
+      map[user._id] = { username: user.username, avatarURL: user.avatarURL };
+      return map;
+    }, {});
+
+    const augmentedTasks = [...alreadyStartedTasks, ...pendingTasks].map(
+      (task) => {
+        if (
+          task.data?.accountable?.userId &&
+          accountableMap[task.data.accountable.userId]
+        ) {
+          task.data.accountable.username =
+            accountableMap[task.data.accountable.userId].username;
+          task.data.accountable.avatarURL =
+            accountableMap[task.data.accountable.userId].avatarURL;
+        }
+        return task;
+      }
+    );
+
     const taskMap = {
       doing: [],
       late: [],
@@ -205,7 +234,7 @@ class ActivedTasksRepository {
       nonAcc: [],
     };
 
-    [...alreadyStartedTasks, ...pendingTasks].forEach((task) => {
+    augmentedTasks.forEach((task) => {
       task = task.toObject({ getters: true, virtuals: true });
       const moment = getMomentStatus(task);
 
