@@ -14,6 +14,7 @@ class ActivedTasksRepository {
       flowTitle = "",
       label = "",
       client = "",
+      userId = false,
       taskId = false,
       alpha = false,
       creation = false,
@@ -29,6 +30,9 @@ class ActivedTasksRepository {
     const isCreation = creation === "true"; //Ordem de Criação
     const isTasksACC = tasksACC === "true";
     const isTaskID = taskId === "null" ? null : taskId;
+    //?
+    const isAccId = userId === "null" ? null : userId;
+    const { ObjectId } = require("mongodb");
 
     const SortedBy = isCreation
       ? { "data.startedAt": 1 }
@@ -65,6 +69,7 @@ class ActivedTasksRepository {
       "data.label": { $regex: label, $options: "i" },
       "data.status": currentStatus,
       ...(isTaskID && { _id: taskId }),
+      ...(isAccId && { "data.accountable.userId": ObjectId(userId) }),
     };
 
     if (currentStatus === "doing") {
@@ -82,7 +87,9 @@ class ActivedTasksRepository {
       }
     }
 
+    console.log("Query : ", query);
     const Pagination = await ActivedNode.paginate(query, paginateOptions);
+    console.log("Pagination :", Pagination);
 
     const taskPagination = await Promise.all(
       Pagination.docs.map(async (item) => {
@@ -196,13 +203,8 @@ class ActivedTasksRepository {
       ActivedNode.find({ ...queryTask, "data.status": "pending" }),
     ]);
 
-    const accountableIds = [...alreadyStartedTasks, ...pendingTasks]
-      .filter((task) => task.data?.accountable?.userId)
-      .map((task) => task.data.accountable.userId)
-      .filter((id, index, self) => self.indexOf(id) === index);
-
     const accountables = await this.getTenantUsersWithAvatars({
-      _id: { $in: accountableIds },
+      $or: [{ _id: tenantId }, { tenantId }],
     });
 
     const accountableMap = accountables.reduce((map, user) => {
