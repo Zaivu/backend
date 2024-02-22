@@ -41,7 +41,10 @@ router.get("/activedtasks/dashboard/productivity/tasks", (req, res, next) =>
 router.get("/activedtasks/dashboard/productivity/flows", (req, res, next) =>
   activedTasksController.getDashboardFlowsProductivity(req, res, next)
 );
-
+//Atualizar deadline de tarefa
+router.put("/activedtasks/deadline", (req, res, next) =>
+  activedTasksController.updateTaskDeadline(req, res, next)
+);
 //Atualizar Responsável por tarefa
 router.put("/activedtasks/accountable/", checkPermission, (req, res, next) =>
   activedTasksController.setAccountable(req, res, next)

@@ -331,11 +331,16 @@ class ActivedTasksRepository {
       })
     );
   }
+
   async getUser(query) {
     return await User.findOne(query);
   }
   async getTask(query) {
     return await ActivedNode.findOne(query);
+  }
+
+  async updateTask(query, data) {
+    return await ActivedNode.findOneAndUpdate(query, data, { new: true });
   }
   async setAccountable(task, user) {
     const taskId = task._id;

@@ -68,14 +68,12 @@ class ActivedTasksService {
       startDate
     );
   }
-
   async getDashboardTasksProductivity(tenantId, startDate) {
     return await this.activedTasksRepository.getDashboardTasksProductivity(
       tenantId,
       startDate
     );
   }
-
   async getDashboardFlowsProductivity(tenantId) {
     return await this.activedTasksRepository.getDashboardFlowsProductivity(
       tenantId
@@ -105,6 +103,29 @@ class ActivedTasksService {
       user,
       tenantId
     );
+  }
+  async updateTaskDeadline(taskId, tenantId, expiration) {
+    const query = { _id: taskId, tenantId, type: "task" };
+    const task = await this.activedTasksRepository.getTask(query);
+
+    if (!task) {
+      throw exceptions.entityNotFound("Tarefa não encontrada");
+    }
+    const status = task.data.status;
+    if (status !== "doing") {
+      throw exceptions.acessDenied("Tarefa deve estar em execução");
+    }
+
+    const data = {
+      ...task.data,
+      expiration: {
+        ...task.data.expiration,
+        number: expiration.number,
+        date: expiration.date,
+      },
+    };
+
+    return this.activedTasksRepository.updateTask({ _id: task._id }, data);
   }
   async setLabel(taskId, tenantId, label) {
     const query = { _id: taskId, tenantId };
