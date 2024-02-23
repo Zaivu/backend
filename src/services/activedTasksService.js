@@ -104,7 +104,7 @@ class ActivedTasksService {
       tenantId
     );
   }
-  async updateTaskDeadline(taskId, tenantId, expiration) {
+  async updateTaskDeadline(taskId, tenantId, delayTime) {
     const query = { _id: taskId, tenantId, type: "task" };
     const task = await this.activedTasksRepository.getTask(query);
 
@@ -115,17 +115,22 @@ class ActivedTasksService {
     if (status !== "doing") {
       throw exceptions.acessDenied("Tarefa deve estar em execução");
     }
+    //delayTime vem em horas adicionais
+    const delayedDate = new Date(delayTime);
+    const startedAt = new Date(task.data.startedAt);
+    const delayedHours =
+      (delayedDate.getTime() - startedAt.getTime()) / (1000 * 60 * 60);
 
     const data = {
-      ...task.data,
-      expiration: {
-        ...task.data.expiration,
-        number: expiration.number,
-        date: expiration.date,
-      },
+      ...task.data.expiration,
+      number: delayedHours,
+      date: delayedDate.getTime(),
     };
 
-    return this.activedTasksRepository.updateTask({ _id: task._id }, data);
+    return await this.activedTasksRepository.updateTask(
+      { _id: task._id },
+      { "data.expiration": data }
+    );
   }
   async setLabel(taskId, tenantId, label) {
     const query = { _id: taskId, tenantId };

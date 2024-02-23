@@ -156,14 +156,14 @@ class ActivedTasksController {
   }
   async updateTaskDeadline(req, res) {
     try {
-      const { taskId, expiration } = req.body;
+      const { delayTime, taskId } = req.body;
       const user = req.user;
       const tenantId = user.tenantId ? user.tenantId : user._id;
 
       const task = await this.activedTasksService.updateTaskDeadline(
         taskId,
         tenantId,
-        expiration
+        delayTime
       );
       res.status(200).send(task);
     } catch (error) {

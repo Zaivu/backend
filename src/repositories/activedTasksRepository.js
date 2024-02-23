@@ -87,9 +87,7 @@ class ActivedTasksRepository {
       }
     }
 
-    console.log("Query : ", query);
     const Pagination = await ActivedNode.paginate(query, paginateOptions);
-    console.log("Pagination :", Pagination);
 
     const taskPagination = await Promise.all(
       Pagination.docs.map(async (item) => {
